@@ -1,0 +1,74 @@
+# Intro
+This document outlines the data structure for an advanced chat history format for the general language models library (GLM). This format is designed to be compatible with a wide range of language models and backends. The history is stored in memory as a dictionary during runtime and can be exported as YAML or JSON. It can also be sent via protobuf.
+
+
+# Structure
+- history
+  - This is a list of various, time ordered, entries that can be any of the below. It should represent the entire user-service interaction
+- Properties potentially shared among all entries
+  - content
+    - The content of the message.
+  - meta
+    - This can contain various metadata about the message. Additional keys are allowed.
+    - token_count
+      - The number of tokens in the message.
+    - completion_time
+      - The time it took (the assistant) to generate the response. 
+  - function_calls
+    - This is used when a (or multiple) function call is made. The format allows for user-initiated function calls. But outside local installations and technical audiences, I strongly advise against enabling it. Security risks are far more manageable through the sanitized models.
+    - name
+      - The name of the called function.
+    - parameters
+      - The used parameters (both args and kwargs).
+- user
+  - This represents a user initiated message.
+  - sentiment
+    - The sentiment of the user's message. This can be useful for the model to adjust its responses accordingly.
+- assistant
+  - This represents a message from the assistant.
+  - feedback
+    - Any feedback provided by the user about the assistant's previous message.
+- user_interaction
+  - Due to lack of data a rigid structure is not yet defined. However this is integral to GLMs integration into a service. Here information about user actions on the service/site during the conversation can be stored. For example, if the user clicked a button that displayed new information.
+- meta
+  - This contains metadata about the chat.
+  - chat_started
+    - The timestamp when the chat started.
+  - used_model
+    - The model used for the chat.
+- settings
+  - This contains settings for the chat.
+  - chat_format
+    - This determines how the dictionary will be parsed before being given to the model.
+  - function_calls
+    - This contains settings related to function calls.
+    - enabled
+      - Whether function calls are enabled.
+    - available_functions
+      - A list of available functions. Each function has the following properties:
+        - name
+          - The name of the function.
+        - args
+          - The arguments of the function.
+        - kwargs
+          - The keyword arguments of the function.
+        - help
+          - The help text for the function.
+    - compiler_trust_level
+      - The trust level for the compiler. This is optional.
+    - max_calls_per_output
+      - The maximum number of function calls per output. This is optional.
+    - max_tokens_per_code_segment
+      - The maximum number of tokens per code segment. This is optional.
+  - atomic_sequences
+    - These sequences will always be returned as a chunk. For example, ("$$", "$$") will lead to LaTeX being preserved.
+  - model_specific_settings
+    - Settings specific to the model being used.
+- system
+  - This contains system-level information. Additional keys are allowed.
+  - primary_message
+    - The primary message to be displayed to the user.
+  - available_user_info
+    - Information about the user that can be used by the model. For example, the user's preferred name, gender, etc.
+  - service_info
+    - Information about the deployment that can change dynamically. For example, whether a service is online.

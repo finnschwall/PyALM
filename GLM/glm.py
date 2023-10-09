@@ -1,6 +1,18 @@
 from abc import abstractmethod
 import psutil
 import ast
+import enum
+import re
+from timeit import default_timer as timer
+class ConversationRoles(enum.Enum):
+    USER = "USER"
+    ASSISTANT = "ASSISTANT"
+    
+    def __str__(self) -> str:
+        return self.value
+
+
+
 class GLM:
     def __init__(self, model_path_or_name, n_ctx=2048, verbose=0):
         self.model = model_path_or_name
@@ -8,59 +20,105 @@ class GLM:
         self.atomic_sequences = {"functions": ["➡️", "⬅️"],
                                  "latex_double" : ["$$","$$"],
                                 "latex_single" : ["$","$"]}
-        self.symbols = {"FUNC_DELIMITER_START":self.atomic_sequences["functions"][0], "FUNC_DELIMITER_END":self.atomic_sequences["functions"][1]}
+        self.symbols = {"FUNC_DELIMITER_START":self.atomic_sequences["functions"][0], "FUNC_DELIMITER_END":self.atomic_sequences["functions"][1],
+                       "ASSISTANT": "Assistant", "USER":"User"}
+        self.settings = {"GENERATION_PREFIX": "[[ASSISTANT]]: "}
 
-        self.conv_history= {}
+        self.conv_history= []
 
         self.system_msg = None
 
+        self.prompt_text_is_str = False
+
     def _repl(self, match):
+        if match[1] in self.symbols:
+            return self.symbols[match[1]]
         return match[1]
 
     def replace_symbols(self, text):
         pattern = r'\[\[(.*?)\]\]'
-        matches = list(re.finditer(pattern, txt))
-        re.sub(pattern, self.repl, txt)
-        return txt
+        matches = list(re.finditer(pattern, text))
+        text= re.sub(pattern, self._repl, text)
+        return text
 
     def save_history(self, path):
         with open(path,"w") as f:
             f.write(yaml.dump(self.conv_history))
+
+    def load_history(self, path):
+        with open(path,"r") as f:
+            self.conv_history = yaml.full_load(f.read())
     
     @abstractmethod
     def tokenize(self, text):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def tokenize_as_str(self, text):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def get_n_tokens(self, text):
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def create_native_generator(self, text, *args, **kwargs):
-        raise NotImplementedException()
+        raise NotImplementedError()
 
     @abstractmethod
-    def build_model_input_from_history(self, yaml_inp):
-        pass
+    def build_prompt(self):
+        raise NotImplementedError()
+
+    def reset_tracker(self):
+        self.conv_history = []
+
+    def add_tracker_entry(self, role, content= None, meta=None, function_calls=None, context = None, feedback=None, sentiment= None, add_keys = None):
+
+        role = _get_enum_value(role, ConversationRoles)
+        
+        msg = {"role" : role}
+        excl = ["msg", "role", "add_keys", "excl", "loc", "self"]
+        loc = locals()
+        for i in loc:
+            if i in excl:
+                continue
+            if loc[i]:
+                msg[i] = loc[i]
+        if add_keys:
+            msg = msg | add_keys
+            msg = {"role" : role}
+        self.conv_history.append(msg)
+    
+        
 
 
-        # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
+    # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
     # but that would break closed source compatability
-    def create_completion(self,text, verbose=None, max_tokens=256, enable_function_calls = True,
-                          preserved_sequences =  [{"start":"++","end":"--","is_function":True, "name":"function"}, {"start":"$$","end":"$$"}],**kwargs):
+    def create_completion_generator(self,text_obj=None, verbose=None, enable_function_calls = True,
+                          preserved_sequences =  [{"start":"++","end":"--","is_function":True, "name":"function"}, {"start":"$$","end":"$$"}], chat=False,**kwargs):
+        
+        start = timer()
         if not verbose:
             verbose=self.verbose
-        #for LLaMA=max tokens -1: shift context, -2 stop when full
 
-        token_generator = self.create_native_generator(text,**kwargs)
-
+        if not "stop" in kwargs:
+            stop = []
+        elif isinstance("stop",str):
+            stop = [stop]
+        
+        if chat or not self.prompt_text_is_str:
+            if text_obj:
+                self.add_tracker_entry("user", content=text_obj)
+            prompt_obj = self.build_prompt()
+            self.prompt = prompt_obj
+            if self.prompt_text_is_str:
+                stop.append(self.symbols["USER"])
+            token_generator = self.create_native_generator(prompt_obj, stop=stop,**kwargs)
+        if text_obj and not chat:
+            token_generator = self.create_native_generator(text_obj, stop, **kwargs)
+            
         self.generated_text = ""
-        self.prompt = text
-
+        
         
         sequences = preserved_sequences
 
@@ -72,6 +130,7 @@ class GLM:
         yield_type = "token"
     
         for token in token_generator:
+            self.generated_text+=token
             buffer.append(token)
             buffer_str = ''.join(buffer)
     
@@ -99,10 +158,26 @@ class GLM:
                     yield_type="token"
                     sequence_tokens = []
                     buffer = []
+        if chat:
+            self.add_tracker_entry(ConversationRoles.ASSISTANT, content = self.generated_text)
+        end = timer()
+        self.finish_meta["total_finish_time"] = end - start
+        # print("lol")
 
 
-
+def _get_enum_value(input_value, enum_type):
+    if isinstance(input_value, str):
+        try:
+            return enum_type[input_value.upper()]
+        except KeyError:
+            raise ValueError(f"'{input_value}' not found in {enum_type.__name__} enum.")
+    elif isinstance(input_value, enum_type):
+        return input_value
+    else:
+        raise TypeError(f"Invalid input type. Expected enum value or string, got {type(input_value).__name__}.")
     
+
+
 
 
 class CodeVisitor(ast.NodeVisitor):
@@ -111,20 +186,15 @@ class CodeVisitor(ast.NodeVisitor):
         self.variables = {}
 
     def visit_Call(self, node):
-        # Get function name
         func_name = node.func.id
-
-        # Get arguments
         args = [self.variables.get(arg.id, None) if isinstance(arg, ast.Name) else ast.literal_eval(arg) for arg in node.args]
-
-        # Get keyword arguments
         kwargs = {kw.arg: self.variables.get(kw.value.id, None) if isinstance(kw.value, ast.Name) else ast.literal_eval(kw.value) for kw in node.keywords}
 
-        print(f'Function call: {func_name}({args}, {kwargs})')
+        # print(f'Function call: {func_name}({args}, {kwargs})')
 
         resolved_func = self.func_map.get(func_name)
         if resolved_func:
-            result = resolved_func(*args, **kwargs)   # This executes the function call.
+            result = resolved_func(*args, **kwargs)
             self.variables['__call_res__'] = result
         return result
 
@@ -139,7 +209,7 @@ class CodeVisitor(ast.NodeVisitor):
                 value = ast.literal_eval(node.value)
 
             self.variables[var_name] = value
-            print(f'Variable assignment: {var_name} = {value}')
+            # print(f'Variable assignment: {var_name} = {value}')
 
 
 # def test(x,y):

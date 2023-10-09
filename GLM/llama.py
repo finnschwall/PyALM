@@ -27,10 +27,7 @@ import pickle
 from functools import partial
 from .glm import GLM
 from .resources import *
-#parse and call callback for stuff inside a block e.g. functions
-#full result return
 #embedding support
-#tqdm load thingy
 
 #training loras?
 
@@ -83,13 +80,19 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 
 class LLaMa(GLM):
     
-    def __init__(self, model_path, n_ctx=2048, verbose=0, n_threads=-1, n_gpu_layers=-1, quantize_format = "auto",is_70b=False, disable_log_hook=False,**kwargs):
+    def __init__(self, model_path, n_ctx=2048, verbose=0, n_threads=-1, n_gpu_layers=-1, quantize_format = "auto",is_70b=False, disable_log_hook=False,
+                 disable_model_load= False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, n_ctx=n_ctx, verbose=verbose)
         self.initial_resource_state = get_resource_info()
         _load = True
         _primary_load = True
         _counter = 0
+
+        if disable_model_load:
+            self.llm = ""
+            return
+        
         if quantize_format == "auto":
             if model_path.endswith("gguf"):
                 quantize_format = "gguf"
@@ -154,7 +157,7 @@ class LLaMa(GLM):
 
         self.load_resource_info = get_resource_diff(self.initial_resource_state, self.after_load_resource_info)
         self.load_resource_info["model_load_time"] = model_load_time
-        
+        self.prompt_text_is_str = True
 
         if _meta_dic["n_layer"]!="Unknown":
             n_layers =  int(_meta_dic["n_layer"])
@@ -200,75 +203,25 @@ class LLaMa(GLM):
 
 
     def create_native_generator(self, text, max_tokens=512, stream=True, endless=False, **kwargs):
+        #for LLaMA=max tokens -1: shift context, -2 stop when full
         if endless:
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,logits_processor=self.disable_eos_lproc, **kwargs)
         else:
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, **kwargs)
 
         return token_generator
+
+    def build_prompt(self):
+        prompt = ""
+        for i in self.conv_history:
+            role = self.symbols[str(i["role"])]
+            prompt += f"{role}: {i['content']}\n"
+
+        if "GENERATION_PREFIX" in self.settings and self.settings["GENERATION_PREFIX"] != "":
+            prompt += self.settings["GENERATION_PREFIX"]
+        prompt = self.replace_symbols(prompt)
+        return prompt
     
-    
-
-    # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
-    # but that would break closed source compatability
-    # def create_completion(self,text, verbose=None, max_tokens=256, endless=False, enable_function_calls = True,
-    #                       preserved_sequences =  [{"start":"++","end":"--","is_function":True, "name":"function"}, {"start":"$$","end":"$$"}],**kwargs):
-    #     if not verbose:
-    #         verbose=self.verbose
-    #     #max tokens -1: shift context, -2 stop when full
-
-    #     if endless:
-            
-    #         token_generator = self.llm(text, max_tokens=max_tokens, stream=True,logits_processor=self.disable_eos_lproc, **kwargs)
-    #     else:
-    #         token_generator = self.llm(text, max_tokens=max_tokens, stream=True, **kwargs)
-    #     self.generated_text = ""
-    #     self.prompt = text
-
-        
-    #     sequences = preserved_sequences
-
-    #     buffer = []
-    #     sequence_tokens = []
-    #     start_sequence = None
-    #     end_sequence = None
-    #     in_sequence = False
-    #     yield_type = "token"
-    
-    #     for token in token_generator:
-    #         buffer.append(token)
-    #         buffer_str = ''.join(buffer)
-    
-    #         if not in_sequence:
-    #             for sequence in sequences:
-    #                 if buffer_str.strip().startswith(sequence['start']):
-    #                     in_sequence = True
-    #                     start_sequence = sequence['start']
-    #                     end_sequence = sequence['end']
-    #                     sequence_tokens.extend(buffer)
-    #                     yield_type = start_sequence + "XYZ" +end_sequence if not "type" in sequence else sequence["type"]
-    #                     buffer = []
-    #                     break
-    #             if not in_sequence and len(buffer) > len(max(sequences, key=lambda s: len(s['start']))['start']):
-    #                 yield buffer.pop(0), yield_type, None
-    #         else:
-
-    #             sequence_tokens.append(token)
-    #             if buffer_str.endswith(end_sequence):
-    #                 in_sequence = False
-    #                 ret_val = None
-    #                 if yield_type=="function":
-    #                     pass
-    #                 yield ''.join(sequence_tokens), yield_type, ret_val
-    #                 yield_type="token"
-    #                 sequence_tokens = []
-    #                 buffer = []
-    
-    #     if in_sequence:
-    #         yield ''.join(sequence_tokens),yield_type, None
-    #     while buffer:
-    #         yield buffer.pop(0),yield_type, None
-
 
     # TODO measure time difference for state and context saving
     def save_state_to_disk(self, filename):
@@ -520,7 +473,6 @@ def _build_llama(_Llama):
                                 break
                             remaining_tokens = remaining_tokens[i:]
                             returned_tokens += i
-    
                             yield ts
                             
     
@@ -609,7 +561,7 @@ def _build_llama(_Llama):
                         if token_end_position == end - 1:
                             break
                         returned_tokens += 1
-                        yield last_text[: len(last_text) - (token_end_position - end)].decode("utf-8", errors="ignore"), logprobs_or_none
+                        yield last_text[: len(last_text) - (token_end_position - end)].decode("utf-8", errors="ignore")#, logprobs_or_none
                         yield ""
                         break
                     returned_tokens += 1
