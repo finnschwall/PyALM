@@ -126,4 +126,4 @@ When finished supplying the `n_layers` parameter should now utilize your GPU.
 
 # Tracker specification
 
-See [here](https://github.com/finnschwall/GLM/format_specifications.md)
+See [here](https://github.com/finnschwall/GLM/blob/main/format_specifications.md)
