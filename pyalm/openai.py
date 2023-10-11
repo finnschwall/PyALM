@@ -1,11 +1,11 @@
-from .glm import GLM
+from .alm import ALM
 import openai
 import time 
 import os
 import tiktoken
 from functools import partial
 
-class OpenAI(GLM):
+class OpenAI(ALM):
 
     def __init__(self,model_path_or_name, openai_key=None, verbose = 0, n_ctx=2048, **kwargs):
         super().__init__(model_path_or_name, n_ctx=n_ctx, verbose=verbose)
@@ -14,7 +14,7 @@ class OpenAI(GLM):
         elif not "OPENAI_API_KEY" in os.environ:
             raise Exception("No openai key set!")
                 
-        conv = {"gpt3": "gpt-3.5-turbo","gpt-3": "gpt-3.5-turbo", "chatgpt":"gpt-3.5-turbo", "gpt4":"gpt-4", "gpt-3.5-turbo"}
+        conv = {"gpt3": "gpt-3.5-turbo","gpt-3": "gpt-3.5-turbo", "chatgpt":"gpt-3.5-turbo", "gpt4":"gpt-4", "gpt-16k":"gpt-3.5-turbo-16k"}
         self.model_path_or_name = conv.get(model_path_or_name, model_path_or_name)
         self.symbols["ASSISTANT"] = "assistant"
         self.symbols["USER"] = "user"

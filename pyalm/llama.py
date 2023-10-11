@@ -25,7 +25,7 @@ import numpy as np
 import numpy.typing as npt
 import pickle
 from functools import partial
-from .glm import GLM
+from .alm import ALM
 from .resources import *
 #embedding support
 
@@ -78,7 +78,7 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 
 
 
-class LLaMa(GLM):
+class LLaMa(ALM):
     
     def __init__(self, model_path, n_ctx=2048, verbose=0, n_threads=-1, n_gpu_layers=-1, quantize_format = "auto",is_70b=False, disable_log_hook=False,
                  disable_model_load= False, **kwargs):

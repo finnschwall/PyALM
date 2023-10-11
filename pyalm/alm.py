@@ -4,6 +4,7 @@ import ast
 import enum
 import re
 from timeit import default_timer as timer
+from pylot import python_parsing
 class ConversationRoles(enum.Enum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
@@ -13,7 +14,7 @@ class ConversationRoles(enum.Enum):
 
 
 
-class GLM:
+class ALM:
     def __init__(self, model_path_or_name, n_ctx=2048, verbose=0):
         self.model = model_path_or_name
         self.verbose=verbose
@@ -22,7 +23,8 @@ class GLM:
                                 "latex_single" : ["$","$"]}
         self.symbols = {"FUNC_DELIMITER_START":self.atomic_sequences["functions"][0], "FUNC_DELIMITER_END":self.atomic_sequences["functions"][1],
                        "ASSISTANT": "Assistant", "USER":"User"}
-        self.settings = {"GENERATION_PREFIX": "[[ASSISTANT]]: "}
+        self.base_settings = {"GENERATION_PREFIX": "[[ASSISTANT]]: "}
+        self.settings = dict(self.base_settings)
 
         self.conv_history= []
 
@@ -88,6 +90,20 @@ class GLM:
             msg = msg | add_keys
             msg = {"role" : role}
         self.conv_history.append(msg)
+
+    @staticmethod
+    def functions_to_dict(functions):
+        if not isinstance(functions, list):
+            functions = [functions]
+        dic_list = []
+        for i in functions:
+            func_as_dic = python_parsing.function_signature_to_dict(i)
+            dic_list.append(func_as_dic)
+        return dic_list
+
+    def register_functions(self, functions):
+        pass
+
     
         
 
