@@ -124,13 +124,13 @@ class ALM:
         
         if chat or not self.prompt_text_is_str:
             if text_obj:
-                self.add_tracker_entry("user", content=text_obj)
+                self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
             if self.prompt_text_is_str:
                 stop.append(self.symbols["USER"])
             token_generator = self.create_native_generator(prompt_obj, stop=stop,**kwargs)
-        if text_obj and not chat:
+        if text_obj and not chat and self.prompt_text_is_str:
             token_generator = self.create_native_generator(text_obj, stop, **kwargs)
             
         self.generated_text = ""
