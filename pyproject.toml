@@ -1,10 +1,10 @@
 [project]
-name = "GLM"
+name = "PyGLM"
 version = "0.1.0"
 authors = [
   { name="Finn Schwall", email="finn.schwall@isob.fraunhofer.de" },
 ]
-description = "Abstraction for large language models"
+description = "Python abstraction layer for large language models"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/finnschwall/GLM"
+"Homepage" = "https://github.com/finnschwall/PyGLM"
 
 [build-system]
 requires = ["setuptools>=61.0"]
