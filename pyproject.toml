@@ -18,7 +18,7 @@ dependencies = [
 ]
 [project.optional-dependencies]
 normal = [
-    "pylot @ https://github.com/finnschwall/PyLoT",
+    "git+https://github.com/finnschwall/PyLoT#egg=pylot",
     "psutil~=5.9.5",
     "tiktoken~=0.5.1",
     "tqdm~=4.66.1",
