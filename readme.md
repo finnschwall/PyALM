@@ -123,7 +123,7 @@ llm.reset_tracker()
 
 # Installation
 ```bash
-pip3 install git+https://github.com/finnschwall/PyALM#egg=project[normal]
+pip3 install git+https://github.com/finnschwall/PyALM#egg=pyalm[normal]
 ```
 Requires a working C compiler. For troubleshooting [this](https://github.com/abetlen/llama-cpp-python) is likely the adress.
 
