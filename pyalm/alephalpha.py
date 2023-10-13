@@ -1,30 +1,25 @@
 from .alm import ALM
-import openai
 import time
 import os
-import tiktoken
+from aleph_alpha_client import Client, CompletionRequest, Prompt
 from functools import partial
 
 
 class OpenAI(ALM):
 
-    def __init__(self, model_path_or_name, openai_key=None, verbose=0, n_ctx=2048, **kwargs):
+    def __init__(self, model_path_or_name, aleph_alpha_key=None, verbose=0, n_ctx=2048, **kwargs):
         super().__init__(model_path_or_name, n_ctx=n_ctx, verbose=verbose)
-        if openai_key:
-            openai.api_key = openai_key
-        elif not "OPENAI_API_KEY" in os.environ:
-            raise Exception("No openai key set!")
+        if aleph_alpha_key:
+            self.api_key = aleph_alpha_key
+        elif "AA_TOKEN" in os.environ:
+            self.api_key =os.getenv("AA_TOKEN")
+        elif not "AA_TOKEN" in os.environ:
+            raise Exception("No aleph_alpha_key key set!")
 
-        conv = {"gpt3": "gpt-3.5-turbo", "gpt-3": "gpt-3.5-turbo", "chatgpt": "gpt-3.5-turbo", "gpt4": "gpt-4",
-                "gpt-16k": "gpt-3.5-turbo-16k"}
-        self.model_path_or_name = conv.get(model_path_or_name, model_path_or_name)
-        self.symbols["ASSISTANT"] = "assistant"
-        self.symbols["USER"] = "user"
-        self.symbols["SYSTEM"] = "system"
+        self.client = Client(token=self.api_key)
+
         self.finish_meta = {}
-        self.pricing = {"gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
-                        "gpt-3.5-turbo-16k": {"input": 0.003, "output": 0.004},
-                        "gpt-4": {"input": 0.03, "output": 0.06}}
+        self.pricing = {"gpt-3.5-turbo": {"input": 0.0015, "output": 0.002}}
 
     # @abstractmethod
     def tokenize(self, text):

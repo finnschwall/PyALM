@@ -6,7 +6,7 @@ This readme being somewhat intelligible does not mean the project is ready to be
 (it isn't)
 
 <p align="center">
-<img src="icon.png" alt="drawing" width="200"/>
+<img src="icon.png" alt="drawing" width="250"/>
 </p>
 
 # Overview
