@@ -25,7 +25,7 @@ PyALM is part of the broader development of the [RIXA framework](https://github.
 provides RIXAs natural language abilities.
 Have a look if you want to see a cool use case of this project or LLMs in general.
 # Usage
-This is a short best of. More infos and examples are in the [docs](https://finnschwall.github.io/pyalm/).
+This is a short best of. More infos and examples are in the [docs](https://finnschwall.github.io/PyALM/).
 
 ## LLaMa
 
