@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>OpenAI &#8212; PyALM 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=4f649999" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=039e1c02" />
+    <script src="../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Aleph Alpha" href="module_aleph_alpha.html" />
+    <link rel="prev" title="Local LlaMa models" href="module_llama.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="openai">
+<h1>OpenAI<a class="headerlink" href="#openai" title="Link to this heading">¶</a></h1>
+<p style="font-size: 5em; color: orange">WIP</p>
+<dl class="py class" id="module-pyalm.openai">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.openai.</span></span><span class="sig-name descname"><span class="pre">OpenAI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">openai_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI._extract_message_from_generator">
+<span class="sig-name descname"><span class="pre">_extract_message_from_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gen</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI._extract_message_from_generator" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.available_models">
+<span class="sig-name descname"><span class="pre">available_models</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['gpt-3.5-turbo',</span> <span class="pre">'gpt-3.5-turbo-16k',</span> <span class="pre">'gpt-4']</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.available_models" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.build_prompt">
+<span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conv_history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.build_prompt" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.create_native_completion">
+<span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.create_native_completion" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.create_native_generator">
+<span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.create_native_generator" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.get_n_tokens">
+<span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.get_n_tokens" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.pricing">
+<span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'gpt-3.5-turbo':</span> <span class="pre">{'input':</span> <span class="pre">0.0015,</span> <span class="pre">'output':</span> <span class="pre">0.002},</span> <span class="pre">'gpt-3.5-turbo-16k':</span> <span class="pre">{'input':</span> <span class="pre">0.003,</span> <span class="pre">'output':</span> <span class="pre">0.004},</span> <span class="pre">'gpt-4':</span> <span class="pre">{'input':</span> <span class="pre">0.03,</span> <span class="pre">'output':</span> <span class="pre">0.06}}</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.pricing" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.pricing_meta">
+<span class="sig-name descname"><span class="pre">pricing_meta</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'currency':</span> <span class="pre">'$',</span> <span class="pre">'token_unit':</span> <span class="pre">1000}</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.pricing_meta" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.tokenize">
+<span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.tokenize" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.openai.OpenAI.tokenize_as_str">
+<span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.tokenize_as_str" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PyALM</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="module_alm.html">Core</a></li>
+<li class="toctree-l1"><a class="reference internal" href="module_llama.html">Local LlaMa models</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">OpenAI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pyalm.openai.OpenAI"><code class="docutils literal notranslate"><span class="pre">OpenAI</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="module_aleph_alpha.html">Aleph Alpha</a></li>
+<li class="toctree-l1"><a class="reference internal" href="module_resources.html">Helpers</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="module_llama.html" title="previous chapter">Local LlaMa models</a></li>
+      <li>Next: <a href="module_aleph_alpha.html" title="next chapter">Aleph Alpha</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, Finn Schwall, Fraunhofer IOSB.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="../_sources/modules/module_openai.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

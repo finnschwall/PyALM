@@ -1,0 +1,13 @@
+# Local LlaMa models
+
+<p style="font-size: 5em; color: orange">WIP</p>
+
+
+```{eval-rst}  
+.. automodule:: pyalm.llama
+   :members:
+   :undoc-members:
+   :private-members:
+```
+
+
