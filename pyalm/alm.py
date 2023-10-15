@@ -7,6 +7,8 @@ from timeit import default_timer as timer
 from pylot import python_parsing
 from typing import Type
 from functools import partial
+from warnings import warn
+
 
 class ConversationRoles(enum.Enum):
     USER = "USER"
@@ -20,6 +22,18 @@ class FunctionFormat(enum.Enum):
     PYDOC = "PYDOC"
     JSON = "JSON"
     MODEL_SPECIFIC = "MODEL_SPECIFIC"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class ParseStatus(enum.Enum):
+    UNDEFINED = "UNDEFINED"
+    NO_FUNC_SEQUENCE_FOUND = "NO_FUNC_SEQUENCE_FOUND"
+    UNPARSEABLE_FUNC_FOUND = "UNPARSEABLE_FUNC_FOUND"
+    PARSED_DICT_RETURN = "PARSED_DICT_RETURN"
+    PARSED_EXECUTED_OK = "PARSED_EXECUTED_OK"
+    PARSED_EXECUTED_ERR = "PARSED_EXECUTED_ERR"
 
     def __str__(self) -> str:
         return self.value
@@ -50,8 +64,10 @@ Before you call a function please inform the user so he is aware of possible wai
                               "preserved_sequences": [{"start": self.atomic_sequences["functions"][0],
                                                        "end": self.atomic_sequences["functions"][1],
                                                        "is_function": True, "type": "function"},
-                                                      {"start": "$$", "end": "$$", "name": "latex1"}]}
+                                                      {"start": "$$", "end": "$$", "name": "latex1"}],
+                              "function_integration_template": "[[COMPLETION]]\n[[FUNC_DELIMITER_END]][[FUNCTION_RETURN_VALUE]][[FUNC_DELIMITER_START]]"}
         self.settings = dict(self.base_settings)
+        self._symbol_temp_injection = {}
         self.func_map = {}
 
         self.available_functions = []
@@ -61,21 +77,30 @@ Before you call a function please inform the user so he is aware of possible wai
         self.generated_text = ""
 
         self.prompt_text_is_str = False
+        self.parse_status = ParseStatus.UNDEFINED
 
     def adopt_from_alm(self, other: Type['ALM']):
+        """
+        Copy state from other ALM into this. This is not a deep copy!
+        :param other: Other ALM
+        """
         self.conv_history = other.conv_history
         self.system_msg = other.system_msg
         self.verbose = other.verbose
         self.atomic_sequences = other.atomic_sequences
+        self.available_functions = other.available_functions
+        self.settings.update(other.settings)
 
     def _repl(self, match):
         if match[1] in self.symbols:
             return self.symbols[match[1]]
+        if match[1] in self._symbol_temp_injection:
+            return self._symbol_temp_injection[match[1]]
         return match[1]
 
     def _replace_symbols(self, text):
         pattern = r'\[\[(.*?)\]\]'
-        matches = list(re.finditer(pattern, text))
+        # matches = list(re.finditer(pattern, text))
         text = re.sub(pattern, self._repl, text)
         return text
 
@@ -159,9 +184,9 @@ Before you call a function please inform the user so he is aware of possible wai
             raise e
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
-                                    return_function_call=False, token_prob_delta=None, token_prob_abs=None,
-                          handle_functions= True, **kwargs):
-        self.generated_text=""
+                          token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=[], **kwargs):
+        self._symbol_temp_injection = {}
+        self.generated_text = ""
         if not self.prompt_text_is_str:
             chat = True
         if enable_function_calls is None:
@@ -171,21 +196,16 @@ Before you call a function please inform the user so he is aware of possible wai
         if not verbose:
             verbose = self.verbose
 
-        if not "stop" in kwargs:
-            stop = []
-        elif isinstance("stop", str):
+        if isinstance(stop, str):
             stop = [stop]
-        if not enable_function_calls or not chat:
-            try:
-                stop.remove(self.atomic_sequences["functions"][1])
-            except:
-                pass
 
-        # if enable_function_calls:
-        #     stop.append(self.atomic_sequences["functions"][1])
-        #     print(stop)
-        return_factory = partial(self.create_native_generator, stop=stop, token_prob_delta=token_prob_delta,
-                                                           token_prob_abs=token_prob_abs, stream=False, **kwargs)
+        if enable_function_calls:
+            if not chat:
+                warn("Enabling function calls in non-chat scenario can lead to strange results.")
+            stop.append(self.atomic_sequences["functions"][1])
+
+        add_kwargs = {"stop": stop, "token_prob_delta": token_prob_delta, "token_prob_abs": token_prob_abs}
+
         if chat:
             if text_obj:
                 self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
@@ -194,37 +214,22 @@ Before you call a function please inform the user so he is aware of possible wai
             if self.prompt_text_is_str:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
-            ret_text =  return_factory(prompt_obj)
-                # self.create_native_generator(prompt_obj, stop=stop, token_prob_delta=token_prob_delta,
-                #                                            token_prob_abs=token_prob_abs, stream=False, **kwargs)
-        if text_obj and not chat and self.prompt_text_is_str:
-            ret_text = return_factory(text_obj)
-                # self.create_native_generator(text_obj, stop=stop, token_prob_delta=token_prob_delta,
-                #                                            token_prob_abs=token_prob_abs, stream=False, **kwargs)
+            ret_text = self.create_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
+
+        elif text_obj and self.prompt_text_is_str:
+            ret_text = self.create_completion(text_obj, **add_kwargs, **kwargs)
+
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
-        pattern = re.escape(self.atomic_sequences["functions"][0]) + '(.*?)' + re.escape(self.atomic_sequences["functions"][1])
-        # matches = re.findall(pattern, ret_text, re.DOTALL)
-        matches = [(m.group(1),m.span()) for m in re.finditer(pattern, ret_text, re.DOTALL)]
-        if handle_functions and len(matches)!=0:
-            func_seq = matches[0][0].strip()
-            visitor = python_parsing.CodeVisitor(self.func_map)
-            visitor.visit(ast.parse(func_seq))
-            if "__call_res__" in visitor.variables:
-                ret_val = visitor.variables["__call_res__"]
-                new_assistant_text = ret_text + "\n" + self.atomic_sequences["functions"][1] + \
-                                     ret_val + self.atomic_sequences["functions"][0]
-                self.add_tracker_entry(ConversationRoles.ASSISTANT, content=new_assistant_text,
-                                       function_calls={"original_call": func_seq, "return": ret_val})
-                prompt_obj = self.build_prompt()
-                try:
-                    stop.remove(self.atomic_sequences["functions"][1])
-                except:
-                    pass
-                self.generated_text += ret_text[:matches[0][1][0]] +"\n"
-                ret_text = return_factory(prompt_obj)
-
+        self.generated_text += ret_text
+        if not enable_function_calls:
+            self._symbol_temp_injection["COMPLETION"] = self.generated_text
+            if chat:
+                self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
+            end = timer()
+            self.finish_meta["total_finish_time"] = end - start
+            return self.generated_text
 
         self.generated_text += ret_text
         if chat:
@@ -232,6 +237,52 @@ Before you call a function please inform the user so he is aware of possible wai
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
         return self.generated_text
+
+    def _extract_and_handle_functions(self, text, call_functions=True):
+        pattern = re.escape(self.atomic_sequences["functions"][0]) + '(.*?)' + re.escape(
+            self.atomic_sequences["functions"][1])
+        matches = [(m.group(1), m.span()) for m in re.finditer(pattern, text, re.DOTALL)]
+
+        if len(matches) == 0:
+            self.parse_status = ParseStatus.NO_FUNC_SEQUENCE_FOUND
+            return ParseStatus.NO_FUNC_SEQUENCE_FOUND, None, None
+
+        func_seq = matches[0][0].strip()
+        try:
+            ast_obj = ast.parse(func_seq)
+        except Exception as e:
+            if call_functions:
+                raise Exception("Models doing stuff wrong is not yet correctly handled")
+            self.parse_status = ParseStatus.UNPARSEABLE_FUNC_FOUND
+            return ParseStatus.UNPARSEABLE_FUNC_FOUND, func_seq, e
+
+        if not call_functions:
+            visitor = python_parsing.CodeVisitor(collect=True)
+            visitor.visit(ast_obj)
+            self.parse_status = ParseStatus.PARSED_DICT_RETURN
+            return ParseStatus.PARSED_DICT_RETURN, func_seq, visitor.collection
+
+        visitor = python_parsing.CodeVisitor(self.func_map)
+        visitor.visit(ast_obj)
+        if "__call_res__" in visitor.variables:
+            ret_val = visitor.variables["__call_res__"]
+        else:
+            ret_val = "NO RETURN VALUE"
+
+        self._symbol_temp_injection["FUNCTION_RETURN_VALUE"] = ret_val
+        new_assistant_text = self._replace_symbols(self.settings["function_integration_template"])
+
+
+        self.add_tracker_entry(ConversationRoles.ASSISTANT, content=new_assistant_text,
+                               function_calls={"original_call": func_seq, "return": ret_val})
+        self.parse_status = ParseStatus.PARSED_EXECUTED_OK
+        return ParseStatus.PARSED_EXECUTED_OK, func_seq, new_assistant_text
+
+        # prompt_obj = self.build_prompt()
+        # # try:
+        #     # stop.remove(self.atomic_sequences["functions"][1])
+        #
+        # self.generated_text += ret_text[:matches[0][1][0]] + "\n"
 
 
     # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
@@ -342,7 +393,7 @@ Before you call a function please inform the user so he is aware of possible wai
                         if "__call_res__" in visitor.variables:
                             # print("\n-----------------------------------------------")
                             print(generator_list)
-                            if len(generator_list)!=0:
+                            if len(generator_list) != 0:
                                 rem_tok_gen = generator_list[0]
                                 for discard in rem_tok_gen:
                                     pass

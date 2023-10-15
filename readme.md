@@ -25,6 +25,8 @@ PyALM is part of the broader development of the [RIXA framework](https://github.
 provides RIXAs natural language abilities.
 Have a look if you want to see a cool use case of this project or LLMs in general.
 # Usage
+This is a short best of. More infos and examples are in the [docs](https://finnschwall.github.io/pyalm/).
+
 ## LLaMa
 
 If you don't have one: Download a model. Good address is e.g. [TheBloke](https://huggingface.co/TheBloke).
@@ -185,3 +187,11 @@ CUDA is preinstalled (11.7) so you can use the preinstalled binaries with an ide
 
 The free version 'only' contains 16 GB VRAM + 16 GB RAM so ~6B quantized 30B models is the absolute maximum
 you can get out.
+
+# How to build the docs
+```bash
+pip3 install sphinx myst-parser sphinxcontrib-mermaid
+#cd to docs
+make html
+```
+

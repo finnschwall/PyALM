@@ -39,6 +39,7 @@ def _ban_eos_logits_processor(eos_token, input_ids, logits):
     logits[eos_token] = -float('inf')
     return logits
 
+
 last_used_format = "gguf"
 _max_level = 5
 _load, _primary_load = True, True
@@ -124,7 +125,7 @@ class LLaMa(ALM):
                                  n_gpu_layers=n_gpu_layers, seed=-1, n_gqa=8, **kwargs)
         else:
             self.llm = LlamaBase(model_path=model_path, verbose=verbose, n_ctx=n_ctx, n_threads=n_threads,
-                                 n_gpu_layers=n_gpu_layers, seed=-1, logits_all = True, **kwargs)
+                                 n_gpu_layers=n_gpu_layers, seed=-1, logits_all=True, **kwargs)
         self.ctx = self.llm.ctx
 
         llama_cpp.llama_print_timings(self.ctx)
@@ -205,17 +206,16 @@ class LLaMa(ALM):
         return len(self.llm.tokenize(bytes(text, "utf-8")))
 
     def detokenize(self, toks):
-        if not isinstance(toks,list):
+        if not isinstance(toks, list):
             toks = [toks]
         return self.llm.detokenize(toks)
-
 
     def tokenize_as_str(self, text):
         toks_raw = self.llm.tokenize(bytes(text, "utf-8"))
         toks = []
         buffer = b''
         for i in toks_raw:
-            i= self.llm.detokenize([i])
+            i = self.llm.detokenize([i])
             buffer += i
             try:
                 tok = buffer.decode("utf-8")
@@ -224,11 +224,12 @@ class LLaMa(ALM):
             except UnicodeDecodeError:
                 continue
         return toks
+
     def tokenize(self, text):
         return self.llm.tokenize(bytes(text, "utf-8"))
 
-    def create_native_generator(self, text, max_tokens=512, stream=True, endless=False, token_prob_delta = None,
-                                token_prob_abs = None, **kwargs):
+    def create_native_generator(self, text, max_tokens=512, stream=True, endless=False, token_prob_delta=None,
+                                token_prob_abs=None, **kwargs):
         # for LLaMA=max tokens -1: shift context, -2 stop when full
 
         def test_lproc_func(input_ids, logits):
@@ -238,22 +239,44 @@ class LLaMa(ALM):
             if token_prob_abs:
                 for i, j in token_prob_abs.items():
                     logits[i] = float(j)
-            # print(input_ids[-1])
             return logits
 
         test_lproc = llama_cpp.LogitsProcessorList([test_lproc_func])
-        # print("---")
-        # print(text)
-        # print("---")
         if endless:
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,
                                        logits_processor=self.disable_eos_lproc, **kwargs)
         else:
-            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor = test_lproc, logprobs = 5, **kwargs)
+            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc,
+                                       logprobs=5, **kwargs)
 
         return token_generator
 
-    def build_prompt(self, preserve_flow = False):
+    def create_native_completion(self, text, max_tokens=256, stop=None, token_prob_delta=None,
+                                 token_prob_abs=None, log_probs=None, endless=False,**kwargs):
+
+        def test_lproc_func(input_ids, logits):
+            if token_prob_delta:
+                for i, j in token_prob_delta.items():
+                    logits[i] += float(j)
+            if token_prob_abs:
+                for i, j in token_prob_abs.items():
+                    logits[i] = float(j)
+            return logits
+
+        test_lproc = llama_cpp.LogitsProcessorList([test_lproc_func])
+        call_dic = {"max_tokens": max_tokens, "stream": False}
+        if stop:
+            call_dic["stop"] = stop
+        if log_probs:
+            call_dic["logprobs"] = log_probs
+        if endless:
+            token_generator = self.llm(text, logits_processor=[self.disable_eos_lproc, test_lproc], **call_dic,
+                                       **kwargs)
+        else:
+            token_generator = self.llm(text, logits_processor=test_lproc, **call_dic, **kwargs)
+        return token_generator
+
+    def build_prompt(self, preserve_flow=False):
         return self.build_prompt_as_str(1, 0, block_gen_prefix=preserve_flow)
 
     # TODO measure time difference for state and context saving
@@ -471,7 +494,7 @@ def _build_llama(_Llama):
                             for i in sorted_logprobs[:logprobs]:
                                 str_tok = self.detokenize([i[1]]).decode("utf-8", errors="ignore")
 
-                                ret_logprob.append((str_tok, round(i[0],3), i[1]))
+                                ret_logprob.append((str_tok, round(i[0], 3), i[1]))
                             returned_tokens += 1
                             yield self.detokenize([token]).decode(
                                 "utf-8", errors="ignore"), ret_logprob
@@ -527,10 +550,10 @@ def _build_llama(_Llama):
                          f"Prompt intake speed\t{tim.t_p_eval_ms:<8.0f}ms / {tim.n_p_eval:<5} t = {t_intake_per_s:<7.2f} t/s\n" \
                          f"Generation speed:\t{tim.t_eval_ms:<8.0f}ms / {tim.n_eval:<5} t = {t_gen_per_s:<7.2f} t/s"
 
-            self.finish_meta["tokens"] = {"Prompt tokens": tim.n_p_eval, "Generated tokens": tim.n_eval}
+            self.finish_meta["tokens"] = {"prompt_tokens": tim.n_p_eval, "generated_tokens": tim.n_eval}
             self.finish_meta["timings"] = {"ms for prompt": tim.t_p_eval_ms, "ms for generation": tim.t_eval_ms,
-                                           "total time": tot_ms}
-            self.finish_meta["t_per_s"] = {"t_intake_per_s": t_intake_per_s, "t_total_per_s": t_total_per_s,
+                                           "total_time": tot_ms}
+            self.finish_meta["t_per_s"] = {"t_intake_per_s": t_intake_per_s, "token_total_per_s": t_total_per_s,
                                            "t_gen_per_s": t_gen_per_s}
             self.finish_meta["timing_str"] = timing_str
 
@@ -593,7 +616,7 @@ def _build_llama(_Llama):
                             break
                         returned_tokens += 1
                         yield last_text[: len(last_text) - (token_end_position - end)].decode("utf-8",
-                                                                                              errors="ignore")  , logprobs_or_none
+                                                                                              errors="ignore"), logprobs_or_none
                         yield "", logprobs_or_none
                         break
                     returned_tokens += 1
@@ -667,12 +690,21 @@ def _build_llama(_Llama):
                 if echo and len(all_tokens) > 0:
                     token_logprobs[0] = None
                     top_logprobs[0] = None
+
+                # ret_logprob = [token]
+                # for i in sorted_logprobs[:logprobs]:
+                #     str_tok = self.detokenize([i[1]]).decode("utf-8", errors="ignore")
+                #
+                #     ret_logprob.append((str_tok, round(i[0], 3), i[1]))
                 logprobs_or_none = {
                     "tokens": tokens,
                     "text_offset": text_offsets,
                     "token_logprobs": token_logprobs,
                     "top_logprobs": top_logprobs,
                 }
-            yield text_str, None
+            if logprobs:
+                yield text_str, top_logprobs
+            else:
+                yield text_str
 
     globals()["LlamaBase"] = LlamaBase

@@ -5,6 +5,9 @@ def __getattr__(name):
     if name == "OpenAI":
         from .openai import OpenAI
         return OpenAI
+    if name.lower() == "alephalpha":
+        from .alephalpha import AlephAlpha
+        return AlephAlpha
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 from .alm import ConversationRoles, ALM
