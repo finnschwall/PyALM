@@ -48,6 +48,7 @@ class ALM:
                                  "latex_single": ["$", "$"]}
         func_inclusion_message = """[[LIST_OF_FUNCTIONS]]
 Above you is a list of functions you can call. To call them enclose them with [[FUNC_DELIMITER_START]] and end the call with [[FUNC_DELIMITER_END]].
+The entire sequence must be correct! Do not e.g. leave out the [[FUNC_DELIMITER_END]].
 This
 [[FUNC_DELIMITER_START]]foo(bar=3)[[FUNC_DELIMITER_END]]
 would call the function foo with bar=3. The function(s) will return immediately. The values will be in the inverse sequence of the function enclosement.  
@@ -130,8 +131,14 @@ Before you call a function please inform the user so he is aware of possible wai
         raise NotImplementedError()
 
     @abstractmethod
-    def create_native_generator(self, text, token_prob_delta=None, endless=False,
-                                token_prob_abs=None, *args, **kwargs):
+    def create_native_generator(self, text, keep_dict=False, token_prob_delta=None,
+                                token_prob_abs=None, **kwargs):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def create_native_completion(self, text, max_tokens=256, stop=None, keep_dict=False, token_prob_delta=None,
+                                 token_prob_abs=None,
+                                 log_probs=None, **kwargs):
         raise NotImplementedError()
 
     @abstractmethod
@@ -185,6 +192,7 @@ Before you call a function please inform the user so he is aware of possible wai
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
                           token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=[], **kwargs):
+        self.finish_meta["function_call"] = {"found": False}
         self._symbol_temp_injection = {}
         self.generated_text = ""
         if not self.prompt_text_is_str:
@@ -214,24 +222,51 @@ Before you call a function please inform the user so he is aware of possible wai
             if self.prompt_text_is_str:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
-            ret_text = self.create_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
+            ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
 
         elif text_obj and self.prompt_text_is_str:
-            ret_text = self.create_completion(text_obj, **add_kwargs, **kwargs)
+            ret_text = self.create_native_completion(text_obj, **add_kwargs, **kwargs)
 
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
+        # print("\n----\n" + ret_text + "\n-----\n")
+
         self.generated_text += ret_text
         if not enable_function_calls:
-            self._symbol_temp_injection["COMPLETION"] = self.generated_text
             if chat:
                 self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
             return self.generated_text
 
+        self._symbol_temp_injection["COMPLETION"] = self.generated_text
+        status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
+
+        # print(status, seq, new_text)
+
+        if status != ParseStatus.NO_FUNC_SEQUENCE_FOUND:
+            self.finish_meta["function_call"]["found"] = True
+            self.finish_meta["function_call"]["sequence"] = seq
+
+        if status != ParseStatus.PARSED_EXECUTED_OK:
+            if chat:
+                self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
+            end = timer()
+            self.finish_meta["total_finish_time"] = end - start
+            return self.generated_text
+
+        try:
+            stop.remove(self.atomic_sequences["functions"][1])
+        except:
+            pass
+        prompt_obj = self.build_prompt()
+        ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)
+
+        # print("\n----\n" + ret_text + "\n-----\n")
+
         self.generated_text += ret_text
+
         if chat:
             self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
         end = timer()
@@ -244,8 +279,14 @@ Before you call a function please inform the user so he is aware of possible wai
         matches = [(m.group(1), m.span()) for m in re.finditer(pattern, text, re.DOTALL)]
 
         if len(matches) == 0:
-            self.parse_status = ParseStatus.NO_FUNC_SEQUENCE_FOUND
-            return ParseStatus.NO_FUNC_SEQUENCE_FOUND, None, None
+            text += self.atomic_sequences["functions"][1]
+            pattern = re.escape(self.atomic_sequences["functions"][0]) + '(.*?)' + re.escape(
+                self.atomic_sequences["functions"][1])
+            matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, text, re.DOTALL)]
+
+            if len(matches) == 0:
+                self.parse_status = ParseStatus.NO_FUNC_SEQUENCE_FOUND
+                return ParseStatus.NO_FUNC_SEQUENCE_FOUND, None, None
 
         func_seq = matches[0][0].strip()
         try:
@@ -272,18 +313,13 @@ Before you call a function please inform the user so he is aware of possible wai
         self._symbol_temp_injection["FUNCTION_RETURN_VALUE"] = ret_val
         new_assistant_text = self._replace_symbols(self.settings["function_integration_template"])
 
-
         self.add_tracker_entry(ConversationRoles.ASSISTANT, content=new_assistant_text,
                                function_calls={"original_call": func_seq, "return": ret_val})
         self.parse_status = ParseStatus.PARSED_EXECUTED_OK
-        return ParseStatus.PARSED_EXECUTED_OK, func_seq, new_assistant_text
 
-        # prompt_obj = self.build_prompt()
-        # # try:
-        #     # stop.remove(self.atomic_sequences["functions"][1])
-        #
-        # self.generated_text += ret_text[:matches[0][1][0]] + "\n"
+        loc = text.find(func_seq)
 
+        return ParseStatus.PARSED_EXECUTED_OK, func_seq, text[:loc]
 
     # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
     # but that would break closed source compatability

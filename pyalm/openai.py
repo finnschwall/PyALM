@@ -79,6 +79,7 @@ class OpenAI(ALM):
                 stop=stop,
                 **kwargs
             )
+        print(response)
         response_txt = response["choices"][0]["message"]["content"]
         end = timer()
 

@@ -274,6 +274,9 @@ class LLaMa(ALM):
                                        **kwargs)
         else:
             token_generator = self.llm(text, logits_processor=test_lproc, **call_dic, **kwargs)
+        # print("here")
+        # print(token_generator)
+        # print()
         return token_generator
 
     def build_prompt(self, preserve_flow=False):
@@ -421,7 +424,7 @@ def _build_llama(_Llama):
             ):
                 if token == self._token_eos:
                     text = self.detokenize(completion_tokens)
-                    self.finish_meta["finish_reason"] = "stop"
+                    self.finish_meta["finish_reason"] = "EOS"
                     break
 
                 completion_tokens.append(token)
