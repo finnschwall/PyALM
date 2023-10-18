@@ -66,9 +66,8 @@ Before you call a function please inform the user so he is aware of possible wai
                                                        "end": self.atomic_sequences["functions"][1],
                                                        "is_function": True, "type": "function"},
                                                       {"start": "$$", "end": "$$", "name": "latex1"}],
-                              "function_integration_template": "[[COMPLETION]]\n[[FUNC_DELIMITER_END]][[FUNCTION_RETURN_VALUE]][[FUNC_DELIMITER_START]]"}
+                              "function_integration_template": "\n[[FUNC_DELIMITER_START]][[FUNCTION_SEQUENCE]][[FUNC_DELIMITER_END]]\n[[FUNC_DELIMITER_END]][[FUNCTION_RETURN_VALUE]][[FUNC_DELIMITER_START]]"}
         self.settings = dict(self.base_settings)
-        self._symbol_temp_injection = {}
         self.func_map = {}
 
         self.available_functions = []
@@ -92,18 +91,45 @@ Before you call a function please inform the user so he is aware of possible wai
         self.available_functions = other.available_functions
         self.settings.update(other.settings)
 
-    def _repl(self, match):
+    def _repl(self, match, text = None, temp_symbols={}):
         if match[1] in self.symbols:
-            return self.symbols[match[1]]
-        if match[1] in self._symbol_temp_injection:
-            return self._symbol_temp_injection[match[1]]
-        return match[1]
+            val = self.symbols[match[1]]
+            if isinstance(val, str):
+                return self.symbols[match[1]]
+            else:
+                try:
+                    return val(match, text, temp_symbols)
+                except Exception as e:
+                    raise Exception("An error occurred while trying to substitute symbols for prompt:\n"+str(e))
+        if match[1] in temp_symbols:
+            val = temp_symbols[match[1]]
+            if isinstance(val, str):
+                return temp_symbols[match[1]]
+            else:
+                try:
+                    return val(match, text, temp_symbols)
+                except Exception as e:
+                    raise Exception("An error occurred while trying to substitute symbols for prompt:\n"+str(e))
+        return f"#KEY_MISSING: {match[1]}#"
 
-    def _replace_symbols(self, text):
+    def _build_func_template(self, match, text, temp_symbols):
+        return self._replace_symbols(self.settings["function_integration_template"], temp_symbols=temp_symbols)
+
+    def _replace_symbols(self, text, entry = None, temp_symbols = None):
+        if not temp_symbols:
+            temp_symbols = {}
+            if entry:
+                if "function_calls" in entry:
+                    if "original_call" in entry["function_calls"]:
+                        temp_symbols["FUNCTION_SEQUENCE"] = entry["function_calls"]["original_call"]
+                    if "return" in entry["function_calls"]:
+                        temp_symbols["FUNCTION_RETURN_VALUE"] = entry["function_calls"]["return"]
+        if self.settings["FUNCTION_AUTOINTEGRATION"]:
+            temp_symbols["FUNCTION_CALL"] = self._build_func_template
         pattern = r'\[\[(.*?)\]\]'
-        # matches = list(re.finditer(pattern, text))
-        text = re.sub(pattern, self._repl, text)
+        text = re.sub(pattern, lambda match: self._repl(match, text, temp_symbols), text)
         return text
+
 
     def save_history(self, path):
         with open(path, "w") as f:
@@ -193,7 +219,6 @@ Before you call a function please inform the user so he is aware of possible wai
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
                           token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=[], **kwargs):
         self.finish_meta["function_call"] = {"found": False}
-        self._symbol_temp_injection = {}
         self.generated_text = ""
         if not self.prompt_text_is_str:
             chat = True
@@ -230,7 +255,6 @@ Before you call a function please inform the user so he is aware of possible wai
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
-        # print("\n----\n" + ret_text + "\n-----\n")
 
         self.generated_text += ret_text
         if not enable_function_calls:
@@ -240,10 +264,7 @@ Before you call a function please inform the user so he is aware of possible wai
             self.finish_meta["total_finish_time"] = end - start
             return self.generated_text
 
-        self._symbol_temp_injection["COMPLETION"] = self.generated_text
         status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
-
-        # print(status, seq, new_text)
 
         if status != ParseStatus.NO_FUNC_SEQUENCE_FOUND:
             self.finish_meta["function_call"]["found"] = True
@@ -255,15 +276,13 @@ Before you call a function please inform the user so he is aware of possible wai
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
             return self.generated_text
-
+        self.generated_text = new_text+"\n"
         try:
             stop.remove(self.atomic_sequences["functions"][1])
         except:
             pass
         prompt_obj = self.build_prompt()
         ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)
-
-        # print("\n----\n" + ret_text + "\n-----\n")
 
         self.generated_text += ret_text
 
@@ -310,14 +329,14 @@ Before you call a function please inform the user so he is aware of possible wai
         else:
             ret_val = "NO RETURN VALUE"
 
-        self._symbol_temp_injection["FUNCTION_RETURN_VALUE"] = ret_val
-        new_assistant_text = self._replace_symbols(self.settings["function_integration_template"])
-
-        self.add_tracker_entry(ConversationRoles.ASSISTANT, content=new_assistant_text,
+        loc = text.find(func_seq)
+        loc -= len(self.atomic_sequences["functions"][0])
+        # new_assistant_text = text[:loc] + "[[ORIGINAL_CALL]]"+
+        self.add_tracker_entry(ConversationRoles.ASSISTANT, content=text[:loc]+"[[FUNCTION_CALL]]",
                                function_calls={"original_call": func_seq, "return": ret_val})
         self.parse_status = ParseStatus.PARSED_EXECUTED_OK
 
-        loc = text.find(func_seq)
+
 
         return ParseStatus.PARSED_EXECUTED_OK, func_seq, text[:loc]
 
@@ -473,7 +492,7 @@ Before you call a function please inform the user so he is aware of possible wai
 
         for i in self.conv_history:
             role = self.symbols[str(i["role"])]
-            prompt += f"{role}:{after_role}{i['content']}" + "\n" * new_lines_per_role
+            prompt += f"{role}:{after_role}{self._replace_symbols(i['content'],i)}" + "\n" * new_lines_per_role
         if block_gen_prefix:
             prompt = prompt[:-1]
         if not block_gen_prefix and "GENERATION_PREFIX" in self.settings and self.settings["GENERATION_PREFIX"] != "":

@@ -50,7 +50,6 @@ class OpenAI(ALM):
                 token = i["choices"][0]["delta"]["content"]
             except:
                 self.finish_meta["finish_reason"] = i["choices"][0]["finish_reason"]
-            # print(token, end ="")
             # self.test_txt += token
             yield token, None
 
@@ -79,7 +78,6 @@ class OpenAI(ALM):
                 stop=stop,
                 **kwargs
             )
-        print(response)
         response_txt = response["choices"][0]["message"]["content"]
         end = timer()
 
@@ -98,6 +96,7 @@ class OpenAI(ALM):
                                     "total": round(cost_out + cost_in, 5),
                                     "total_cent": round((cost_out + cost_in) * 100, 3),
                                     "unit": OpenAI.pricing_meta["currency"]}
+
         if keep_dict:
             return response
         return response_txt
@@ -110,9 +109,9 @@ class OpenAI(ALM):
         response = openai.ChatCompletion.create(
             model=self.model,
             messages=text,
-            stream=stream,
+            stream=True,
             logit_bias=token_prob_delta,
-            stop_sequences=stop,
+            # stop_sequences=stop,
             **kwargs
         )
 
@@ -131,5 +130,5 @@ class OpenAI(ALM):
             prompt.append({"role": self.symbols["SYSTEM"], "content":
                 self._replace_symbols(system_msg["content"])})
         for i in conv_history:
-            prompt.append({"role": self.symbols[str(i["role"])], "content": self._replace_symbols(i["content"])})
+            prompt.append({"role": self.symbols[str(i["role"])], "content": self._replace_symbols(i["content"], i)})
         return prompt
