@@ -28,6 +28,8 @@ import pickle
 from functools import partial
 from .alm import ALM
 from .resources import *
+import contextlib
+import io
 
 
 # embedding support
@@ -47,7 +49,7 @@ progress_bar = None
 _exp_max_char = 700
 
 _meta_dic = {"n_ctx": "Unknown", "n_layer": "Unknown", "model type": "Unknown", "model size": "Unknown",
-             "model ftype": "Unknown", "general.name": "Unknown"}
+             "model ftype": "Unknown", "general.name": "Unknown", "n_ctx_train": "Unknown"}
 
 n_gpu_layers = -1
 
@@ -85,7 +87,7 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 
 class LLaMa(ALM):
 
-    def __init__(self, model_path, n_ctx=2048, verbose=0, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
+    def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
                  is_70b=False, disable_log_hook=False, disable_model_load=False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, n_ctx=n_ctx, verbose=verbose)
@@ -168,11 +170,13 @@ class LLaMa(ALM):
                     if n_gpu_layers < n_layers:
                         info_str += f"\nExp max VRAM:\t{self.load_resource_info['vram_diff'] / n_gpu_layers * n_layers:<5.0f}mb"
             if _meta_dic["n_ctx"] != "Unknown":
-                info_str += f"\nMax ctx:\t{_meta_dic['n_ctx']:<5}"
+                info_str += f"\nSet ctx:\t{_meta_dic['n_ctx']:<5}"
+            if _meta_dic["n_ctx_train"] != "Unknown":
+                info_str += f"\nMax ctx:\t{_meta_dic['n_ctx_train']:<5}"
             if _meta_dic["model size"] != "Unknown":
                 info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
             info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
-
+            print(_meta_dic)
             print(info_str)
         self.model_meta_info = _meta_dic
 
@@ -269,15 +273,17 @@ class LLaMa(ALM):
             call_dic["stop"] = stop
         if log_probs:
             call_dic["logprobs"] = log_probs
-        if endless:
-            token_generator = self.llm(text, logits_processor=[self.disable_eos_lproc, test_lproc], **call_dic,
-                                       **kwargs)
-        else:
-            token_generator = self.llm(text, logits_processor=test_lproc, **call_dic, **kwargs)
+        with contextlib.redirect_stderr(io.StringIO()):
+            if endless:
+                token_generator = self.llm(text, logits_processor=[self.disable_eos_lproc, test_lproc], **call_dic,
+                                           **kwargs)
+            else:
+                token_generator = self.llm(text, logits_processor=test_lproc, **call_dic, **kwargs)
         # print("here")
         # print(token_generator)
         # print()
-        return token_generator
+        print(repr(token_generator))
+        return token_generator.strip()
 
     def build_prompt(self, preserve_flow=False):
         return self.build_prompt_as_str(1, 0, block_gen_prefix=preserve_flow)
@@ -404,7 +410,7 @@ def _build_llama(_Llama):
                     if self.verbose:
                         print("Llama._create_completion: cache miss", file=sys.stderr)
 
-            self.finish_meta["finish_reason"] = "length"
+            self.finish_meta["finish_reason"] = "CASE NOT COVERED"
             multibyte_fix = 0
             for token in self.generate(
                     prompt_tokens,

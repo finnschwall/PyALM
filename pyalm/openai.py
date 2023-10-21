@@ -10,9 +10,11 @@ from timeit import default_timer as timer
 
 class OpenAI(ALM):
     available_models = ["gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-4"]
+    """All models that are known to work"""
     pricing = {"gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
                "gpt-3.5-turbo-16k": {"input": 0.003, "output": 0.004},
                "gpt-4": {"input": 0.03, "output": 0.06}, }
+    """Pricing per input and output tokens in a prompt. Streaming costs the same"""
     pricing_meta = {"currency": "$", "token_unit": 1000}
 
     def __init__(self, model_path_or_name, openai_key=None, verbose=0, n_ctx=2048, **kwargs):
@@ -48,10 +50,12 @@ class OpenAI(ALM):
         for i in gen:
             try:
                 token = i["choices"][0]["delta"]["content"]
-            except:
                 self.finish_meta["finish_reason"] = i["choices"][0]["finish_reason"]
+                yield token, None
+            except:
+                pass
             # self.test_txt += token
-            yield token, None
+
 
     def create_native_completion(self, text, max_tokens=256, stop=None, keep_dict=False, token_prob_delta=None,
                                  token_prob_abs=None,
@@ -105,15 +109,22 @@ class OpenAI(ALM):
                                 token_prob_abs=None, **kwargs):
         if token_prob_abs:
             raise Exception("OpenAI API only supports relative logit chance change")
-
-        response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=text,
-            stream=True,
-            logit_bias=token_prob_delta,
-            # stop_sequences=stop,
-            **kwargs
-        )
+        if token_prob_delta:
+            response = openai.ChatCompletion.create(
+                model=self.model,
+                messages=text,
+                stream=True,
+                logit_bias=token_prob_delta,
+                # stop_sequences=stop,
+                **kwargs
+            )
+        else:
+            response = openai.ChatCompletion.create(
+                model=self.model,
+                messages=text,
+                stream=True,
+                **kwargs
+            )
 
         if keep_dict:
             return response

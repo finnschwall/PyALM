@@ -1,8 +1,8 @@
 # Helpers
+## Introduction
+Various helping functions that had no better place
 
-<p style="font-size: 5em; color: orange">WIP</p>
-
-
+## Documentation
 ```{eval-rst}  
 .. automodule:: pyalm.resources
    :members:

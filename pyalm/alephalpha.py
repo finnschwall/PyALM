@@ -13,8 +13,11 @@ class AlephAlpha(ALM):
                         'luminous-supreme-control', 'luminous-extended']
     pricing = {"luminous-bas": 0.03, "luminous-extended": 0.045, "luminous-supreme": 0.175, "luminous-base-control": 0.0375, "luminous-extended-control": 0.05625,
                "luminous-supreme-control": 0.21875}
+    """Pricing per token"""
     pricing_img = {"luminous-base": 0.03024, "luminous-extended": 0.04536}
+    """Cost per processed image"""
     pricing_factors = {"Complete": {"input": 1, "output": 1.1}, "Summarize": {"input": 1.3, "output": 1.1}}
+    """Pricing factor depending on model and whether it is prompt or output"""
     pricing_meta = {"currency": "credits", "token_unit": 1000, "€/Credits": 0.2}
 
     def __init__(self, model_path_or_name, aleph_alpha_key=None, verbose=0, n_ctx=2048, **kwargs):
@@ -48,7 +51,12 @@ class AlephAlpha(ALM):
     def get_n_tokens(self, text):
         return len(self.tokenize(text))
 
-    def get_remaining_tokens(self):
+    def get_remaining_credits(self):
+        """
+        How many credits are still available in the given API key
+
+        :return: remaining credits
+        """
         url = "https://api.aleph-alpha.com/users/me"
 
         payload = {}
@@ -119,6 +127,13 @@ class AlephAlpha(ALM):
         return self.build_prompt_as_str(1, 0, block_gen_prefix=preserve_flow)
 
     def summarize(self, *, text= None, path_to_docx=None):
+        """
+        Summarize a text using the current model
+
+        :param text: Text to summarize
+        :param path_to_docx: Alternative to text. Summarize a .docx document
+        :return: summarized text as string
+        """
         if text:
             request = SummarizationRequest(document=Document.from_text(text))
         elif path_to_docx:
@@ -131,9 +146,24 @@ class AlephAlpha(ALM):
 
     @staticmethod
     def image_from_source(source):
+        """
+        Create Aleph compatible image from e.g. file, url etc.
+
+        :param source:
+        :return: Aleph compatible image obj
+        """
         return Image.from_image_source(image_path)
 
     def multimodal_completion(self, prompt_list, max_tokens = 256, stop=None,**kwargs):
+        """
+        Prompt the model using multimodal input
+
+        :param prompt_list: A list of texts and images.
+        :param max_tokens: Max tokens to return
+        :param stop: List of strings to stop at
+        :param kwargs: kwargs
+        :return: Text
+        """
         prompt = Prompt(items=prompt_list)
         if stop:
             request = CompletionRequest(prompt=prompt, maximum_tokens=max_tokens, stop_sequences=stop, **kwargs)
@@ -143,97 +173,3 @@ class AlephAlpha(ALM):
         return response.completions[0].completion
 
 
-"""[
-  {
-    "name": "luminous-supreme",
-    "description": "Multilingual model trained on English, German, French, Spanish and Italian",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": false,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [],
-    "maximum_completion_tokens": 1500
-  },
-  {
-    "name": "luminous-base",
-    "description": "Multilingual model trained on English, German, French, Spanish and Italian",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": true,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [
-      "symmetric_128",
-      "asymmetric_128_document",
-      "asymmetric_128_query",
-      "symmetric",
-      "asymmetric_document",
-      "asymmetric_query"
-    ],
-    "maximum_completion_tokens": null
-  },
-  {
-    "name": "luminous-extended-control",
-    "description": "A variant of the Luminous-extended model that is optimized for downstream task performance",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": false,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [],
-    "maximum_completion_tokens": null
-  },
-  {
-    "name": "luminous-base-control",
-    "description": "A variant of the Luminous-base model that is optimized for downstream task performance",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": false,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [
-      "symmetric_128",
-      "asymmetric_128_document",
-      "asymmetric_128_query",
-      "symmetric",
-      "asymmetric_document",
-      "asymmetric_query"
-    ],
-    "maximum_completion_tokens": null
-  },
-  {
-    "name": "luminous-supreme-control",
-    "description": "A variant of the Luminous-Supreme model that is optimized for downstream task performance",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": false,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [],
-    "maximum_completion_tokens": 1500
-  },
-  {
-    "name": "luminous-extended",
-    "description": "Multilingual model trained on English, German, French, Spanish and Italian",
-    "max_context_size": 2048,
-    "hostings": [
-      "aleph-alpha"
-    ],
-    "image_support": true,
-    "qa_support": false,
-    "summarization_support": false,
-    "embedding_types": [],
-    "maximum_completion_tokens": null
-  }
-]"""

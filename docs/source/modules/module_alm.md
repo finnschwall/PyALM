@@ -1,13 +1,13 @@
 # Core
+## Introduction
+Core components. Most notably ALM which is the Class from which all models derive.
+All functions that are common amongst models are here. 
 
-<p style="font-size: 5em; color: orange">WIP</p>
-
-
+## Documentation
 ```{eval-rst}  
 .. automodule:: pyalm.alm
    :members:
    :undoc-members:
-   :private-members:
 ```
 
 

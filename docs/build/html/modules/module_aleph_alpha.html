@@ -33,8 +33,27 @@
             
   <section id="aleph-alpha">
 <h1>Aleph Alpha<a class="headerlink" href="#aleph-alpha" title="Link to this heading">¶</a></h1>
-<p style="font-size: 5em; color: orange">WIP</p>
-<dl class="py class" id="module-pyalm.alephalpha">
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
+<p>Use with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pyalm</span> <span class="kn">import</span> <span class="n">AlephAlpha</span>
+<span class="n">llm</span> <span class="o">=</span> <span class="n">AlephAlpha</span><span class="p">(</span><span class="s2">&quot;luminous-extended-control&quot;</span><span class="p">,</span> <span class="n">aleph_alpha_key</span><span class="o">=</span><span class="n">KEY</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Alternatively the key can be ignored and set via the env var <code class="docutils literal notranslate"><span class="pre">AA_TOKEN</span></code>.
+You can set the used model to a non supported one or change it anytime
+via <code class="docutils literal notranslate"><span class="pre">llm.model</span> <span class="pre">=</span> <span class="pre">NAME</span></code>
+Cost can be accessed via <code class="docutils literal notranslate"><span class="pre">llm.finish_meta</span></code> after a call or with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">AlephAlpha</span><span class="o">.</span><span class="n">pricing</span>
+<span class="n">AlephAlpha</span><span class="o">.</span><span class="n">pricing_factors</span>
+<span class="n">AlephAlpha</span><span class="o">.</span><span class="n">pricing_meta</span>
+<span class="n">AlephAlpha</span><span class="o">.</span><span class="n">pricing_img</span>
+</pre></div>
+</div>
+</section>
+<section id="module-pyalm.alephalpha">
+<span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.alephalpha" title="Link to this heading">¶</a></h2>
+<dl class="py class">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alephalpha.</span></span><span class="sig-name descname"><span class="pre">AlephAlpha</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aleph_alpha_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha" title="Link to this definition">¶</a></dt>
 <dd><dl class="py attribute">
@@ -45,17 +64,59 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.build_prompt">
 <span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preserve_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.build_prompt" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Build prompt in format native to library</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>preserve_flow</strong> – Block suffix for purely text based models</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>prompt obj</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.create_native_completion">
 <span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.create_native_completion" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Library native completion retriever. Different for each library. No processing of output is done</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Prompt or prompt obj</p></li>
+<li><p><strong>max_tokens</strong> – maximum tokens generated in completion</p></li>
+<li><p><strong>stop</strong> – Additional stop sequences</p></li>
+<li><p><strong>keep_dict</strong> – If library or API returns something else than raw tokens, whether to return native format</p></li>
+<li><p><strong>token_prob_delta</strong> – dict, relative added number for token logits</p></li>
+<li><p><strong>token_prob_abs</strong> – dict, Absolute logits for tokens</p></li>
+<li><p><strong>log_probs</strong> – int, when not None return the top X log probs and their tokens</p></li>
+<li><p><strong>kwargs</strong> – kwargs</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>completion</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.create_native_generator">
 <span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.create_native_generator" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Library native generator for tokens. Different for each library. No processing of output is done</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Prompt or prompt obj</p></li>
+<li><p><strong>keep_dict</strong> – If library or API returns something else than raw tokens, whether to return native format</p></li>
+<li><p><strong>token_prob_delta</strong> – dict, Absolute logits for tokens</p></li>
+<li><p><strong>token_prob_abs</strong> – dict, relative added number for token logits</p></li>
+<li><p><strong>kwargs</strong> – kwargs</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>generator</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.detokenize">
@@ -65,37 +126,78 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.get_n_tokens">
 <span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.get_n_tokens" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>How many tokens are in a string</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> – tokenizable text</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>amount</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.get_remaining_tokens">
-<span class="sig-name descname"><span class="pre">get_remaining_tokens</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.get_remaining_tokens" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.get_remaining_credits">
+<span class="sig-name descname"><span class="pre">get_remaining_credits</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.get_remaining_credits" title="Link to this definition">¶</a></dt>
+<dd><p>How many credits are still available in the given API key</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>remaining credits</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.image_from_source">
 <em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_from_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.image_from_source" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Create Aleph compatible image from e.g. file, url etc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>source</strong> – </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Aleph compatible image obj</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.multimodal_completion">
 <span class="sig-name descname"><span class="pre">multimodal_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prompt_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.multimodal_completion" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Prompt the model using multimodal input</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prompt_list</strong> – A list of texts and images.</p></li>
+<li><p><strong>max_tokens</strong> – Max tokens to return</p></li>
+<li><p><strong>stop</strong> – List of strings to stop at</p></li>
+<li><p><strong>kwargs</strong> – kwargs</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Text</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing">
 <span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-bas':</span> <span class="pre">0.03,</span> <span class="pre">'luminous-base-control':</span> <span class="pre">0.0375,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.045,</span> <span class="pre">'luminous-extended-control':</span> <span class="pre">0.05625,</span> <span class="pre">'luminous-supreme':</span> <span class="pre">0.175,</span> <span class="pre">'luminous-supreme-control':</span> <span class="pre">0.21875}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Pricing per token</p>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_factors">
 <span class="sig-name descname"><span class="pre">pricing_factors</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Complete':</span> <span class="pre">{'input':</span> <span class="pre">1,</span> <span class="pre">'output':</span> <span class="pre">1.1},</span> <span class="pre">'Summarize':</span> <span class="pre">{'input':</span> <span class="pre">1.3,</span> <span class="pre">'output':</span> <span class="pre">1.1}}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing_factors" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Pricing factor depending on model and whether it is prompt or output</p>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_img">
 <span class="sig-name descname"><span class="pre">pricing_img</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-base':</span> <span class="pre">0.03024,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.04536}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing_img" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Cost per processed image</p>
+</dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_meta">
@@ -105,20 +207,51 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.summarize">
 <span class="sig-name descname"><span class="pre">summarize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_docx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.summarize" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Summarize a text using the current model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> – Text to summarize</p></li>
+<li><p><strong>path_to_docx</strong> – Alternative to text. Summarize a .docx document</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>summarized text as string</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.tokenize">
 <span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.tokenize" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Text to token as vector representation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> – </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of tokens as ints</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.tokenize_as_str">
 <span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.tokenize_as_str" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Text to token as vector representation but each token is converted to string</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> – </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of tokens as strings</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
+</section>
 </section>
 
 
@@ -139,11 +272,13 @@
 
 <h3>Navigation</h3>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="module_alm.html">Core</a></li>
 <li class="toctree-l1"><a class="reference internal" href="module_llama.html">Local LlaMa models</a></li>
 <li class="toctree-l1"><a class="reference internal" href="module_openai.html">OpenAI</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Aleph Alpha</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#pyalm.alephalpha.AlephAlpha"><code class="docutils literal notranslate"><span class="pre">AlephAlpha</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-pyalm.alephalpha">Documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="module_resources.html">Helpers</a></li>
