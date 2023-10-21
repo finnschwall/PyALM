@@ -1,9 +1,7 @@
 <img src="https://cdn-icons-png.flaticon.com/512/6261/6261561.png" alt="drawing" width="75"/>
 <b>You are entering an active construction zone!</b>
 
-This readme being somewhat intelligible does not mean the project is ready to be installed!
-
-(it isn't)
+The project is in an alpha stadium
 
 <p align="center">
 <img src="icon.png" alt="drawing" width="250"/>
