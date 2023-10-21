@@ -26,6 +26,9 @@ normal = [
     "numpy",
     "docstring_parser==0.15",
     "openai",
+    "pyyaml",
+    "aleph_alpha_client"
+
 ]
 
 
