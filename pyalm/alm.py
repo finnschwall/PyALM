@@ -11,6 +11,7 @@ from warnings import warn
 import contextlib
 import io
 import yaml
+import os
 
 
 class ConversationRoles(enum.Enum):
@@ -19,6 +20,19 @@ class ConversationRoles(enum.Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+def conversation_role_representer(dumper, data):
+    return dumper.represent_scalar('!ConversationRole', str(data))
+
+
+def conversation_role_constructor(loader, node):
+    value = loader.construct_scalar(node)
+    return _get_enum_value(value, ConversationRoles)
+
+
+yaml.add_representer(ConversationRoles, conversation_role_representer)
+yaml.add_constructor('!ConversationRole', conversation_role_constructor)
 
 
 class FunctionFormat(enum.Enum):
@@ -45,6 +59,7 @@ class ParseStatus(enum.Enum):
         return self.value
 
 
+# TODO move verbose into settings
 class ALM:
     """
     Base class. Don't instantiate on its own
@@ -74,7 +89,7 @@ Before you call a function please inform the user so he is aware of possible wai
         self.symbols = {"FUNC_DELIMITER_START": self.preserved_sequences["functions"]["start"],
                         "FUNC_DELIMITER_END": self.preserved_sequences["functions"]["end"],
                         "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
-                        "FUNC_INCLUSION_MESSAGE": func_inclusion_message, "LIST_OF_FUNCTIONS": "No functions available"}
+                        "FUNC_INCLUSION_MESSAGE": func_inclusion_message, "LIST_OF_FUNCTIONS": "NO FUNCTIONS AVAILABLE"}
         """
         Variable symbols that will get replaced when building prompt. Either string or function pointer 
         """
@@ -92,6 +107,7 @@ Before you call a function please inform the user so he is aware of possible wai
 
         self.system_msg = {}
         self.generated_text = ""
+
 
         self.prompt_text_is_str = False
         self.parse_status = ParseStatus.UNDEFINED
@@ -163,18 +179,36 @@ Before you call a function please inform the user so he is aware of possible wai
         text = re.sub(pattern, lambda match: self._repl(match, text, temp_symbols), text)
         return text
 
+    def save_state(self, path=None):
+        """
+        Saves the ALMs entire state (excluding the model itself)
+
+        :param path: Where to save. If not specified string is returned
+        :return: None or state as yaml
+        """
+        state = {"system_msg": self.system_msg, "conv_history": self.conv_history, "settings": self.settings,
+                 "symbols": self.symbols, "preserved_sequences": self.preserved_sequences}
+        yaml_str = yaml.dump(state, sort_keys=False)
+        if not path:
+            return yaml_str
+
+        with open(path, "w") as f:
+            f.write(yaml_str)
+
     # TODO implement string return
     def save_history(self, path=None):
-        if not path:
-            raise NotImplementedError()
         """
-        Saves a conversation history
-        
+        Saves the ALMs conversation history
+
         :param path: Where to save. If not specified string is returned
         :return: None or history as yaml like string
         """
+        yaml_str = yaml.dump(self.conv_history)
+        if not path:
+            return yaml_str
+
         with open(path, "w") as f:
-            f.write(yaml.dump(self.conv_history))
+            f.write(yaml_str)
 
     def load_history(self, path_or_text):
         """
@@ -182,10 +216,13 @@ Before you call a function please inform the user so he is aware of possible wai
 
         :param path_or_text: Either path to a file or a yaml like string
         """
-        if not path_or_text:
-            raise NotImplementedError()
-        with open(path_or_text, "r") as f:
-            self.conv_history = yaml.full_load(f.read())
+        if os.path.exists(path_or_text):
+            with open(path_or_text, "r") as f:
+                str = f.read()
+        else:
+            str = path_or_text
+
+        self.conv_history = yaml.full_load(str)
 
     def set_system_message(self, msg, prepend_function_support=True):
         """
@@ -531,8 +568,8 @@ Before you call a function please inform the user so he is aware of possible wai
             raise Exception("No prompt given!")
 
         sequences = []
-        for i,x in self.preserved_sequences.items():
-            if not chat and i=="functions":
+        for i, x in self.preserved_sequences.items():
+            if not chat and i == "functions":
                 continue
             x["type"] = i
             sequences.append(x)
@@ -596,7 +633,7 @@ Before you call a function please inform the user so he is aware of possible wai
                         buffer = []
                         buffer_logits = []
                 if token is cleanup_sentinel:
-                    if len(sequence_tokens)!=0:
+                    if len(sequence_tokens) != 0:
                         sequence_tokens.pop()
                     buf_temp = buffer
                     buf_logits_temp = buffer_logits
@@ -638,27 +675,30 @@ Before you call a function please inform the user so he is aware of possible wai
         self.finish_meta["total_finish_time"] = end - start
         # print(tok_list)
 
-    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False):
+    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw = False):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
         :param new_lines_afer_role: Newlines after role
         :param block_gen_prefix: Whether to add generation prefix
+        :param raw: If true don't resolve symbols
         :return:
         """
+        def rep_sym(str,entry=None):
+            return str if raw else self._replace_symbols(str,entry)
+
         prompt = ""
         after_role = "\n" * new_lines_afer_role if new_lines_afer_role != 0 else " "
         if "content" in self.system_msg:
-            prompt += f"{self.symbols['SYSTEM']}:{after_role}{self.system_msg['content']}" + "\n" * new_lines_per_role
+            prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg['content'])}" + "\n" * new_lines_per_role
 
         for i in self.conv_history:
             role = self.symbols[str(i["role"])]
-            prompt += f"{role}:{after_role}{self._replace_symbols(i['content'], i)}" + "\n" * new_lines_per_role
+            prompt += f"{role}:{after_role}{rep_sym(i['content'], i)}" + "\n" * new_lines_per_role
         if block_gen_prefix:
             prompt = prompt[:-1]
         if not block_gen_prefix and "GENERATION_PREFIX" in self.settings and self.settings["GENERATION_PREFIX"] != "":
-            prompt += self.settings["GENERATION_PREFIX"]
-        prompt = self._replace_symbols(prompt)
+            prompt += rep_sym(self.settings["GENERATION_PREFIX"])
         return prompt
 
 
