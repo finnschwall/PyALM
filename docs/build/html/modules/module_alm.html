@@ -42,7 +42,7 @@ All functions that are common amongst models are here.</p>
 <span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.alm" title="Link to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="pyalm.alm.ALM">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">ALM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">ALM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM" title="Link to this definition">¶</a></dt>
 <dd><p>Base class. Don’t instantiate on its own</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.add_tracker_entry">
@@ -84,17 +84,18 @@ All functions that are common amongst models are here.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.build_prompt_as_str">
-<span class="sig-name descname"><span class="pre">build_prompt_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_lines_per_role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_lines_afer_role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_gen_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.build_prompt_as_str" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">build_prompt_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_lines_per_role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_lines_afer_role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_gen_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.build_prompt_as_str" title="Link to this definition">¶</a></dt>
 <dd><p>Build a prompt in string form
 :param new_lines_per_role: Newlines after Role+message
 :param new_lines_afer_role: Newlines after role
 :param block_gen_prefix: Whether to add generation prefix
+:param raw: If true don’t resolve symbols
 :return:</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.create_completion">
-<span class="sig-name descname"><span class="pre">create_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_function_calls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handle_functions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.create_completion" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">create_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text_obj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_function_calls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handle_functions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.create_completion" title="Link to this definition">¶</a></dt>
 <dd><p>Create completion with automatic prompt building, function calling etc.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -237,6 +238,11 @@ All functions that are common amongst models are here.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.ALM.remove_last_entry">
+<span class="sig-name descname"><span class="pre">remove_last_entry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.remove_last_entry" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.reset_tracker">
 <span class="sig-name descname"><span class="pre">reset_tracker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.reset_tracker" title="Link to this definition">¶</a></dt>
 <dd><p>Remove all tracker entries</p>
@@ -245,7 +251,30 @@ All functions that are common amongst models are here.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.save_history">
 <span class="sig-name descname"><span class="pre">save_history</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.save_history" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Saves the ALMs conversation history</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – Where to save. If not specified string is returned</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None or history as yaml like string</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.ALM.save_state">
+<span class="sig-name descname"><span class="pre">save_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ALM.save_state" title="Link to this definition">¶</a></dt>
+<dd><p>Saves the ALMs entire state (excluding the model itself)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – Where to save. If not specified string is returned</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None or state as yaml</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyalm.alm.ALM.set_system_message">
@@ -314,6 +343,61 @@ All functions that are common amongst models are here.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="pyalm.alm.ConversationTracker">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">ConversationTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_message:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_info:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracker:</span> <span class="pre">list</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ConversationTracker" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.ConversationTracker.add_tracker_entry">
+<span class="sig-name descname"><span class="pre">add_tracker_entry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function_calls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feedback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sentiment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.ConversationTracker.add_tracker_entry" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.alm.ConversationTracker.system_message">
+<span class="sig-name descname"><span class="pre">system_message</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#pyalm.alm.ConversationTracker.system_message" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.alm.ConversationTracker.tracker">
+<span class="sig-name descname"><span class="pre">tracker</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span></em><a class="headerlink" href="#pyalm.alm.ConversationTracker.tracker" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyalm.alm.ConversationTracker.user_info">
+<span class="sig-name descname"><span class="pre">user_info</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#pyalm.alm.ConversationTracker.user_info" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">DataYAML</span></span><a class="headerlink" href="#pyalm.alm.DataYAML" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML.from_dict">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dict_obj</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.DataYAML.from_dict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML.load_from_yaml">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load_from_yaml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.DataYAML.load_from_yaml" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML.save_to_yaml">
+<span class="sig-name descname"><span class="pre">save_to_yaml</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.DataYAML.save_to_yaml" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.DataYAML.to_dict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyalm.alm.DataYAML.yamlify">
+<span class="sig-name descname"><span class="pre">yamlify</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.DataYAML.yamlify" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="pyalm.alm.FunctionFormat">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">FunctionFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.FunctionFormat" title="Link to this definition">¶</a></dt>
 <dd><p>An enumeration.</p>
@@ -369,6 +453,26 @@ All functions that are common amongst models are here.</p>
 <dd></dd></dl>
 
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyalm.alm.conversation_role_constructor">
+<span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">conversation_role_constructor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.conversation_role_constructor" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyalm.alm.conversation_role_representer">
+<span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">conversation_role_representer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dumper</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.conversation_role_representer" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyalm.alm.data_yaml_constructor">
+<span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">data_yaml_constructor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.data_yaml_constructor" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="pyalm.alm.data_yaml_representer">
+<span class="sig-prename descclassname"><span class="pre">pyalm.alm.</span></span><span class="sig-name descname"><span class="pre">data_yaml_representer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dumper</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alm.data_yaml_representer" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </section>
 </section>

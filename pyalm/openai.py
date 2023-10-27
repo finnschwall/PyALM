@@ -17,8 +17,8 @@ class OpenAI(ALM):
     """Pricing per input and output tokens in a prompt. Streaming costs the same"""
     pricing_meta = {"currency": "$", "token_unit": 1000}
 
-    def __init__(self, model_path_or_name, openai_key=None, verbose=0, n_ctx=2048, **kwargs):
-        super().__init__(model_path_or_name, n_ctx=n_ctx, verbose=verbose)
+    def __init__(self, model_path_or_name, openai_key=None, verbose=0, **kwargs):
+        super().__init__(model_path_or_name, verbose=verbose)
         if openai_key:
             openai.api_key = openai_key
         elif not "OPENAI_API_KEY" in os.environ:
@@ -60,6 +60,8 @@ class OpenAI(ALM):
     def create_native_completion(self, text, max_tokens=256, stop=None, keep_dict=False, token_prob_delta=None,
                                  token_prob_abs=None,
                                  log_probs=None, **kwargs):
+        print(stop)
+        return
         if isinstance(text, str):
             raise Exception("Native OpenAI call only supports calls via a json chat format")
         if token_prob_abs:

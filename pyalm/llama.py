@@ -90,7 +90,7 @@ class LLaMa(ALM):
     def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
                  is_70b=False, disable_log_hook=False, disable_model_load=False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
-        super().__init__(model_path, n_ctx=n_ctx, verbose=verbose)
+        super().__init__(model_path, verbose=verbose)
         self.initial_resource_state = get_resource_info()
         _load = True
         _primary_load = True
@@ -160,8 +160,8 @@ class LLaMa(ALM):
 
         if verbose:
             info_str = f"LLM load time:\t{self.load_resource_info['model_load_time']:<5.2f}s\n" \
-                       f"VRAM used:\t{self.load_resource_info['vram_diff']:<5.0f}mb\n" \
-                       f"RAM used:\t{self.load_resource_info['ram_diff']:<5.0f}mb\n" \
+                       f"VRAM used/rem:\t{self.load_resource_info['vram_diff']:<5.0f}mb/{self.after_load_resource_info['tot_free_vram']:<5.0f}mb\n" \
+                       f"RAM used/rem:\t{self.load_resource_info['ram_diff']:<5.0f}mb/{self.after_load_resource_info['available_cpu_mem']:<5.0f}mb\n" \
                        f"CPU time:\t{self.load_resource_info['cpu_time_diff']:<5.2f}s"
             if _meta_dic["n_layer"] != "Unknown":
                 info_str += f"\nN layers:\t{n_layers:<5.0f}"
@@ -250,8 +250,7 @@ class LLaMa(ALM):
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,
                                        logits_processor=self.disable_eos_lproc, **kwargs)
         else:
-            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc,
-                                       logprobs=5, **kwargs)
+            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc, **kwargs)
 
         return token_generator
 

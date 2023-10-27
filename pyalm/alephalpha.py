@@ -21,7 +21,7 @@ class AlephAlpha(ALM):
     pricing_meta = {"currency": "credits", "token_unit": 1000, "€/Credits": 0.2}
 
     def __init__(self, model_path_or_name, aleph_alpha_key=None, verbose=0, n_ctx=2048, **kwargs):
-        super().__init__(model_path_or_name, n_ctx=n_ctx, verbose=verbose)
+        super().__init__(model_path_or_name, verbose=verbose)
         if aleph_alpha_key:
             self.api_key = aleph_alpha_key
         elif "AA_TOKEN" in os.environ:
@@ -30,7 +30,7 @@ class AlephAlpha(ALM):
             raise Exception("No aleph_alpha_key key set!")
         self.model = model_path_or_name
         self.client = Client(token=self.api_key)
-        self.llm = client
+        self.llm = self.client
         self.tokenizer = self.client.tokenizer(self.model)
         self.finish_meta = {}
         self.prompt_text_is_str = True

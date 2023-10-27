@@ -39,6 +39,19 @@
 from <a class="reference external" href="https://github.com/abetlen/llama-cpp-python">llama-cpp-python</a>.</p>
 <p>Documentation is the llama <a class="reference external" href="https://github.com/ggerganov/llama.cpp/blob/master/llama.h">header</a>.</p>
 </section>
+<section id="acquiring-models">
+<h2>Acquiring models<a class="headerlink" href="#acquiring-models" title="Link to this heading">¶</a></h2>
+<p>You need a quantized model. For raw pytorch models use the huggingface ALM (not finished).</p>
+<section id="where-to-look">
+<h3>Where to look<a class="headerlink" href="#where-to-look" title="Link to this heading">¶</a></h3>
+<p>Good address is e.g. <a class="reference external" href="https://huggingface.co/TheBloke">TheBloke</a>.</p>
+</section>
+<section id="quantizing-a-model">
+<h3>Quantizing a model<a class="headerlink" href="#quantizing-a-model" title="Link to this heading">¶</a></h3>
+<p>Look in <a class="reference external" href="https://github.com/ggerganov/llama.cpp">C library</a>. Quantization is resource hungry. Can be used
+to make any Llama based model usable and generally at quite the significant speed increase.</p>
+</section>
+</section>
 <section id="usage-info">
 <h2>Usage info<a class="headerlink" href="#usage-info" title="Link to this heading">¶</a></h2>
 <p>Basic</p>
@@ -48,22 +61,27 @@ from <a class="reference external" href="https://github.com/abetlen/llama-cpp-py
 </div>
 <p>Everything else is mostly model dependent. You can find that out via a model card. Alternatively
 you can load the model for a single time. The library will obtain everything there is to find out from the file</p>
-<section id="quantize-a-model">
-<h3>Quantize a model<a class="headerlink" href="#quantize-a-model" title="Link to this heading">¶</a></h3>
-<p>Look in <a class="reference external" href="https://github.com/ggerganov/llama.cpp">C library</a>. Quantization is resource hungry.</p>
-</section>
-<section id="cpu">
-<h3>CPU<a class="headerlink" href="#cpu" title="Link to this heading">¶</a></h3>
+<section id="cpu-only">
+<h3>CPU only<a class="headerlink" href="#cpu-only" title="Link to this heading">¶</a></h3>
 <p>CPU support is automatic. Perfomance can be controlled via <code class="docutils literal notranslate"><span class="pre">n_threads</span></code>. If not set the library will take whatever it can get.
 Lower quantizations of the same model are faster but quality can suffer immensely.</p>
-<p>Everything above 13B is basically unrunnable. 7B gives decent speed but questionable performance.</p>
 </section>
-<section id="gpu">
-<h3>GPU<a class="headerlink" href="#gpu" title="Link to this heading">¶</a></h3>
+<section id="gpu-only-or-mixed">
+<h3>GPU only or mixed<a class="headerlink" href="#gpu-only-or-mixed" title="Link to this heading">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">n_gpu_layers</span></code> is what controls how much of the model is offloaded to a GPU.
 It has no effect on versions that are not compiled with CUBLAS.
 The required VRAM per layer is model dependent and can be found out via a first load with a low-ish
 value like e.g. 10-20 layers.</p>
+<p>The final layer may produce a much larger overhead than all previous ones and is not accounted for in the
+total VRAM usage estimate.</p>
+</section>
+<section id="b">
+<h3>70b<a class="headerlink" href="#b" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pyalm</span> <span class="kn">import</span> <span class="n">LLaMa</span>
+<span class="n">llm</span> <span class="o">=</span> <span class="n">LLaMa</span><span class="p">(</span><span class="n">PATH_TO_MODEL</span><span class="p">,</span> <span class="n">is_70b</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Will lead to errors for non 70B models. Without proper GPU this is a futile endeavor.</p>
 </section>
 </section>
 <section id="module-pyalm.llama">
@@ -203,6 +221,63 @@ value like e.g. 10-20 layers.</p>
 </dd></dl>
 
 </section>
+<section id="installing-hardware-acceleration">
+<h2>Installing hardware acceleration<a class="headerlink" href="#installing-hardware-acceleration" title="Link to this heading">¶</a></h2>
+<p>CPU always works but is not <em>goal oriented</em> for models &gt; 13B params. There are speed-ups available for
+cpu only via providing better BLAS libraries. Look at <a class="reference external" href="https://github.com/abetlen/llama-cpp-python">llama-cpp-python</a>
+for more info.</p>
+<section id="gpu-standard">
+<h3>GPU-Standard<a class="headerlink" href="#gpu-standard" title="Link to this heading">¶</a></h3>
+<p>Install Cuda. Download a fitting precompiled wheel from
+<a class="reference external" href="https://github.com/jllllll/llama-cpp-python-cuBLAS-wheels/releases/tag/wheels">here</a> and install it.
+When supplying the <code class="docutils literal notranslate"><span class="pre">n_layers</span></code> parameter your GPU should automatically be utilized</p>
+</section>
+<section id="gpu-advanced">
+<h3>GPU-Advanced<a class="headerlink" href="#gpu-advanced" title="Link to this heading">¶</a></h3>
+<p><em>Recommend experience with building</em></p>
+<p>You need CUDA and cpp build tools.</p>
+<p>Build original <a class="reference external" href="https://github.com/ggerganov/llama.cpp">library</a>. It’s not strictly necessary.
+But gives access to the endless scripts and other stuff.
+Also the only way to train LoRA from quantized model is from this fork https://github.com/xaedes/llama.cpp/tree/finetune-lora
+(as of now)</p>
+<p>And makes debugging the next step easier should it fail</p>
+<p>Follow <a class="reference external" href="https://github.com/abetlen/llama-cpp-python">this</a></p>
+<p>When finished supplying the <code class="docutils literal notranslate"><span class="pre">n_layers</span></code> parameter should now utilize your GPU.</p>
+</section>
+</section>
+<section id="how-to-use-without-gpu">
+<h2>How to use without GPU<a class="headerlink" href="#how-to-use-without-gpu" title="Link to this heading">¶</a></h2>
+<p>Due to the nature of the task you will come only this far with CPU-only. You can use a backend like exllama
+that has more aggressive optimizations, use lower bit quantizations and so on.</p>
+<p>Be aware though: A lot of the more effective optimizations cause quality degradation in various degrees.</p>
+<section id="just-inference">
+<h3>Just inference<a class="headerlink" href="#just-inference" title="Link to this heading">¶</a></h3>
+<p>If you don’t want to code but just infer you could use third party providers like
+e.g. Aleph-Alpha. As they usually offer their own playground the usefulness of this framework is quite limited.
+But I am glad to be of help anyway.</p>
+</section>
+<section id="coding-inference">
+<h3>Coding+Inference<a class="headerlink" href="#coding-inference" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Google colab is a good start. GPU availability may be limited. Also you can only have one notebook so larger
+projects are difficult.</p></li>
+<li><p>Kaggle offers free GPU accelerated notebooks</p></li>
+<li><p>There is a lot more</p></li>
+</ul>
+</section>
+<section id="not-so-secret-dev-tip">
+<h3>Not-so-secret dev tip<a class="headerlink" href="#not-so-secret-dev-tip" title="Link to this heading">¶</a></h3>
+<p><a class="reference external" href="https://saturncloud.io/">Saturncloud</a></p>
+<p>A lot of this and other RIXA stuff was developed there. Incredibly helpful for background tasks.
+You get 150 free compute hours/month.
+There are no problems with GPU availability. But most importantly it allows for full project structures and
+temporary deployments into the web.</p>
+<p>CUDA is preinstalled (11.7) so you can use the preinstalled binaries with an identifier like this
+<code class="docutils literal notranslate"><span class="pre">cu117-cp39-cp39-linux_x86_64</span></code></p>
+<p>The free version ‘only’ contains 16 GB VRAM + 16 GB RAM so ~6B quantized 30B models is the absolute maximum
+you can get out.</p>
+</section>
+</section>
 </section>
 
 
@@ -227,8 +302,11 @@ value like e.g. 10-20 layers.</p>
 <li class="toctree-l1"><a class="reference internal" href="module_alm.html">Core</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Local LlaMa models</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#background-and-resources">Background and resources</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#acquiring-models">Acquiring models</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#usage-info">Usage info</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-pyalm.llama">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing-hardware-acceleration">Installing hardware acceleration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-use-without-gpu">How to use without GPU</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="module_openai.html">OpenAI</a></li>

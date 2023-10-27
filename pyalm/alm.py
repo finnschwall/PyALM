@@ -12,6 +12,85 @@ import contextlib
 import io
 import yaml
 import os
+import dataclasses as dc  # import dataclass, asdict, field
+from abc import ABC, abstractmethod
+
+@dc.dataclass
+class DataYAML(ABC):
+
+    def to_dict(self):
+        return dc.asdict(self)
+
+    @classmethod
+    def from_dict(cls, dict_obj):
+        return cls(**dict_obj)
+
+    def save_to_yaml(self, path=None):
+        yaml_str = yaml.dump(self.to_dict(), sort_keys=False)
+        if not path:
+            return yaml_str
+        with open(path, "w") as f:
+            f.write(yaml_str)
+
+    @classmethod
+    def load_from_yaml(cls, path_or_text):
+        if os.path.exists(path_or_text):
+            with open(path_or_text, "r") as f:
+                data = f.read()
+        else:
+            data = path_or_text
+        data = yaml.full_load(data)
+        instance = cls.from_dict(data)
+        return instance
+
+
+@dc.dataclass(kw_only=True)
+class ConversationTracker(DataYAML):
+    system_message: str = None
+    user_info: dict = dc.field(default_factory=dict)
+    tracker: list = dc.field(default_factory=list)
+
+    def reset_tracker(self):
+        temp =self.tracker
+        self.tracker=[]
+        return temp
+
+    def add_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
+                          sentiment=None, add_keys=None):
+        role = _get_enum_value(role, ConversationRoles)
+
+        entry = {"role": role}
+        if content:
+            entry["content"] = content
+        if meta:
+            entry["meta"] = meta
+        if function_calls:
+            entry["function_calls"] = function_calls
+        if feedback:
+            entry["feedback"] = feedback
+        if add_keys:
+            entry = entry | add_keys
+        self.tracker.append(entry)
+        return entry
+
+def data_yaml_representer(dumper, data):
+    return dumper.represent_dict({'class': type(data).__name__, 'data': data.to_dict()})
+
+
+def data_yaml_constructor(loader, node):
+    data = loader.construct_dict(node)
+    cls = globals()[data['class']]
+    return cls.from_dict(data['data'])
+
+
+for i in [DataYAML, ConversationTracker]:
+    yaml.add_representer(i, data_yaml_representer)
+    yaml.add_constructor('!'+i.__name__, data_yaml_constructor)
+# yaml.add_representer(DataYAML, data_yaml_representer)
+# yaml.add_constructor('!DataYAML', data_yaml_constructor)
+# yaml.add_representer(ConversationTracker, data_yaml_representer)
+# yaml.add_constructor('!ConversationTracker', data_yaml_constructor)
+
 
 
 class ConversationRoles(enum.Enum):
@@ -65,7 +144,7 @@ class ALM:
     Base class. Don't instantiate on its own
     """
 
-    def __init__(self, model_path_or_name, n_ctx=2048, verbose=0):
+    def __init__(self, model_path_or_name, verbose=0):
         self.model = model_path_or_name
         self.verbose = verbose
         # self.atomic_sequences = {"functions": ["+++", "---"],  # ["➡️", "⬅️"],["❬", "❭"]
@@ -102,15 +181,18 @@ Before you call a function please inform the user so he is aware of possible wai
         self.func_map = {}
         """Function names and the callable functions available for the model"""
 
+        # TODO REMOVE
         self.available_functions = []
         self.conv_history = []
 
         self.system_msg = {}
         self.generated_text = ""
 
-
         self.prompt_text_is_str = False
         self.parse_status = ParseStatus.UNDEFINED
+
+    def remove_last_entry(self):
+        pass
 
     def adopt_from_alm(self, other: Type['ALM']):
         """
@@ -368,7 +450,7 @@ Before you call a function please inform the user so he is aware of possible wai
             raise e
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
-                          token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=[], **kwargs):
+                          token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=None, **kwargs):
         """
         Create completion with automatic prompt building, function calling etc.
 
@@ -394,6 +476,9 @@ Before you call a function please inform the user so he is aware of possible wai
         start = timer()
         if not verbose:
             verbose = self.verbose
+
+        if not stop:
+            stop=[]
 
         if isinstance(stop, str):
             stop = [stop]
@@ -558,6 +643,7 @@ Before you call a function please inform the user so he is aware of possible wai
             if self.prompt_text_is_str:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
+            # print(prompt_obj)
             token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
                                                            **kwargs)  # return_factory(prompt_obj)
 
@@ -675,7 +761,7 @@ Before you call a function please inform the user so he is aware of possible wai
         self.finish_meta["total_finish_time"] = end - start
         # print(tok_list)
 
-    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw = False):
+    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
@@ -684,8 +770,9 @@ Before you call a function please inform the user so he is aware of possible wai
         :param raw: If true don't resolve symbols
         :return:
         """
-        def rep_sym(str,entry=None):
-            return str if raw else self._replace_symbols(str,entry)
+
+        def rep_sym(str, entry=None):
+            return str if raw else self._replace_symbols(str, entry)
 
         prompt = ""
         after_role = "\n" * new_lines_afer_role if new_lines_afer_role != 0 else " "
