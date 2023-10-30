@@ -176,8 +176,6 @@ class LLaMa(ALM):
             if _meta_dic["model size"] != "Unknown":
                 info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
             info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
-            print(_meta_dic)
-            print(info_str)
         self.model_meta_info = _meta_dic
 
     def setup_backend(self):

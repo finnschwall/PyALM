@@ -15,6 +15,7 @@ import os
 import dataclasses as dc  # import dataclass, asdict, field
 from abc import ABC, abstractmethod
 
+
 @dc.dataclass
 class DataYAML(ABC):
 
@@ -51,12 +52,12 @@ class ConversationTracker(DataYAML):
     tracker: list = dc.field(default_factory=list)
 
     def reset_tracker(self):
-        temp =self.tracker
-        self.tracker=[]
+        temp = self.tracker
+        self.tracker = []
         return temp
 
     def add_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
-                          sentiment=None, add_keys=None):
+                  sentiment=None, add_keys=None):
         role = _get_enum_value(role, ConversationRoles)
 
         entry = {"role": role}
@@ -73,24 +74,45 @@ class ConversationTracker(DataYAML):
         self.tracker.append(entry)
         return entry
 
-def data_yaml_representer(dumper, data):
+
+@dc.dataclass(kw_only=True)
+class ALMSettings(DataYAML):
+    verbose: int = 0
+    preserved_sequences: dict = dc.field(
+        default_factory=lambda: {"latex_double": {"start": "$$", "end": "$$", "name": "latex_double_dollar"}})
+    function_sequence: tuple = dc.field(default_factory=lambda: ("+++", "---"))
+    global_enable_function_calls: bool = True
+    automatic_function_integration: bool = True
+    function_integration_template: str = "\n[[FUNCTION_START]][[FUNCTION_SEQUENCE]][[FUNCTION_END]]\n" \
+                                         "[[FUNCTION_END]][[FUNCTION_RETURN_VALUE]][[FUNCTION_START]]"
+    generation_prefix: str = "[[ASSISTANT]]:"
+
+    function_inclusion_instruction_system_msg = """[[LIST_OF_FUNCTIONS]]
+Above you is a list of functions you can call. To call them enclose them with [[FUNCTION_START]] and end the call with [[FUNCTION_END]].
+The entire sequence must be correct! Do not e.g. leave out the [[FUNCTION_END]].
+This
+[[FUNCTION_START]]foo(bar=3)[[FUNCTION_END]]
+would call the function foo with bar=3. The function(s) will return immediately. The values will be in the inverse sequence of the function enclosement.  
+You can only call the functions listed.
+You can and HAVE TO call functions during the text response not in a a separate response!
+Before you call a function please inform the user so he is aware of possible waiting times.
+"""
+    prompt_obj_is_str: bool = True
+
+
+def _data_yaml_representer(dumper, data):
     return dumper.represent_dict({'class': type(data).__name__, 'data': data.to_dict()})
 
 
-def data_yaml_constructor(loader, node):
+def _data_yaml_constructor(loader, node):
     data = loader.construct_dict(node)
     cls = globals()[data['class']]
     return cls.from_dict(data['data'])
 
 
 for i in [DataYAML, ConversationTracker]:
-    yaml.add_representer(i, data_yaml_representer)
-    yaml.add_constructor('!'+i.__name__, data_yaml_constructor)
-# yaml.add_representer(DataYAML, data_yaml_representer)
-# yaml.add_constructor('!DataYAML', data_yaml_constructor)
-# yaml.add_representer(ConversationTracker, data_yaml_representer)
-# yaml.add_constructor('!ConversationTracker', data_yaml_constructor)
-
+    yaml.add_representer(i, _data_yaml_representer)
+    yaml.add_constructor('!' + i.__name__, _data_yaml_constructor)
 
 
 class ConversationRoles(enum.Enum):
@@ -138,60 +160,87 @@ class ParseStatus(enum.Enum):
         return self.value
 
 
+class Symbols(dict):
+    def __setitem__(self, key, value):
+        key = key.upper()
+        if key == "FUNCTION_START" or key == "FUNCTION_END":
+            raise KeyError(f"'{key}' is a reference. Change 'function_sequence' tuple in settings")
+        if key == "FUNCTION_CALL":
+            raise KeyError(f"'{key}' is a reference. Change 'function_integration_template' in settings")
+
+        super().__setitem__(key, value)
+
+
 # TODO move verbose into settings
 class ALM:
     """
     Base class. Don't instantiate on its own
     """
 
+    @property
+    def verbose(self):
+        return self.settings.verbose
+
+    @verbose.setter
+    def verbose(self, v_new):
+        self.settings.verbose = v_new
+
+    @property
+    def system_msg(self):
+        return self.conversation_history.system_message
+
+    @system_msg.setter
+    def system_msg(self, system_msg):
+        self.conversation_history.system_message = system_msg
+
+    @property
+    def symbols(self):
+        symbols = dict(self._built_in_symbols, **self.user_symbols)
+        symbols.update(self._temp_symbols)
+        return symbols
+
+    @symbols.setter
+    def symbols(self, system_msg):
+        raise Exception("Add or modify symbols via 'user_symbols'")
+
     def __init__(self, model_path_or_name, verbose=0):
         self.model = model_path_or_name
-        self.verbose = verbose
-        # self.atomic_sequences = {"functions": ["+++", "---"],  # ["➡️", "⬅️"],["❬", "❭"]
-        #                          "latex_double": ["$$", "$$"],
-        #                          "latex_single": ["$", "$"]}
-        func_inclusion_message = """[[LIST_OF_FUNCTIONS]]
-Above you is a list of functions you can call. To call them enclose them with [[FUNC_DELIMITER_START]] and end the call with [[FUNC_DELIMITER_END]].
-The entire sequence must be correct! Do not e.g. leave out the [[FUNC_DELIMITER_END]].
-This
-[[FUNC_DELIMITER_START]]foo(bar=3)[[FUNC_DELIMITER_END]]
-would call the function foo with bar=3. The function(s) will return immediately. The values will be in the inverse sequence of the function enclosement.  
-You can only call the functions listed.
-You can and HAVE TO call functions during the text response not in a a separate response!
-Before you call a function please inform the user so he is aware of possible waiting times.
-"""
-        self.preserved_sequences = {"functions": {"start": "+++", "end": "---", "type": "function"},
-                                    # "latex_double": {"start": "$$", "end": "$$", "name": "latex1"}
-                                    }
-        """Dictionary of sequences that only get yielded as whole
-        """
-        self.symbols = {"FUNC_DELIMITER_START": self.preserved_sequences["functions"]["start"],
-                        "FUNC_DELIMITER_END": self.preserved_sequences["functions"]["end"],
-                        "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
-                        "FUNC_INCLUSION_MESSAGE": func_inclusion_message, "LIST_OF_FUNCTIONS": "NO FUNCTIONS AVAILABLE"}
+
+        self.settings = ALMSettings(verbose=verbose)
+        self.settings.verbose = verbose
+        self.model_meta = {"model_name": model_path_or_name}
+
+        self.conversation_history = ConversationTracker()
+
+        self._built_in_symbols = {
+            "FUNCTION_START": lambda match, symbols, text=None: self.settings.function_sequence[0],
+            "FUNCTION_END": lambda match, symbols, text=None: self.settings.function_sequence[1],
+            "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
+            "FUNCTION_CALL": lambda match, symbols, text=None: self.replace_symbols(
+                self.settings.function_integration_template, temp_symbols=temp_symbols)}
+
+        self.user_symbols = Symbols()
         """
         Variable symbols that will get replaced when building prompt. Either string or function pointer 
         """
-        self.base_settings = {"GENERATION_PREFIX": "[[ASSISTANT]]: ", "FUNCTIONS_ENABLED": True,
-                              "FUNCTION_AUTOINTEGRATION": True,
-                              "function_integration_template": "\n[[FUNC_DELIMITER_START]][[FUNCTION_SEQUENCE]][[FUNC_DELIMITER_END]]\n[[FUNC_DELIMITER_END]][[FUNCTION_RETURN_VALUE]][[FUNC_DELIMITER_START]]"}
-        """Default values for settings"""
-        self.settings = dict(self.base_settings)
 
-        self.func_map = {}
+        self._temp_symbols = {}
+        # TODO modify PyLoT so that this works with doc, signature etc. included
+        self.available_functions = {}
         """Function names and the callable functions available for the model"""
 
-        # TODO REMOVE
-        self.available_functions = []
-        self.conv_history = []
+        self.raw_generated_text = ""
 
-        self.system_msg = {}
-        self.generated_text = ""
+        self._finish_meta_template = {"function_call": {"found": False, "parse_status": ParseStatus.UNDEFINED},
+                                      "finish_reason": "Unknown", "timings": {}, }
+        self.finish_meta = dict(self._finish_meta_template)
 
-        self.prompt_text_is_str = False
-        self.parse_status = ParseStatus.UNDEFINED
-
-    def remove_last_entry(self):
+    # TODO implement
+    def pop_entry(self):
+        """
+        Remove last element from conversation tracker. Automatically takes care of e.g. split messages due to function calls.
+        :return: The popped entry
+        """
         pass
 
     def adopt_from_alm(self, other: Type['ALM']):
@@ -200,13 +249,12 @@ Before you call a function please inform the user so he is aware of possible wai
 
         :param other: Other ALM
         """
-        self.conv_history = other.conv_history
+        # self.conv_history = other.conv_history
         self.system_msg = other.system_msg
         self.verbose = other.verbose
-        self.available_functions = other.available_functions
         self.settings.update(other.settings)
 
-    def _repl(self, match, text=None, temp_symbols={}):
+    def _repl(self, match, symbols, text=None):
         """
         Callable for re.sub in _replace_symbols
 
@@ -215,52 +263,43 @@ Before you call a function please inform the user so he is aware of possible wai
         :param temp_symbols: additional symbols
         :return: replacement
         """
-        if match[1] in self.symbols:
-            val = self.symbols[match[1]]
+        if match[1] in symbols:
+            val = symbols[match[1]]
             if isinstance(val, str):
-                return self.symbols[match[1]]
+                return symbols[match[1]]
             else:
                 try:
-                    return val(match, text, temp_symbols)
+                    return val(match, symbols, text)
                 except Exception as e:
                     raise Exception("An error occurred while trying to substitute symbols for prompt:\n" + str(e))
-        if match[1] in temp_symbols:
-            val = temp_symbols[match[1]]
-            if isinstance(val, str):
-                return temp_symbols[match[1]]
-            else:
-                try:
-                    return val(match, text, temp_symbols)
-                except Exception as e:
-                    raise Exception("An error occurred while trying to substitute symbols for prompt:\n" + str(e))
-        return f"#KEY_MISSING: {match[1]}#"
+        return f"#SYMBOL_MISSING: {match[1]}#"
 
-    def _build_func_template(self, match, text, temp_symbols):
-        return self._replace_symbols(self.settings["function_integration_template"], temp_symbols=temp_symbols)
+    # def _build_func_template(self, match, symbols, text):
+    #     return self._replace_symbols(self.settings["function_integration_template"], temp_symbols=temp_symbols)
 
-    def _replace_symbols(self, text, entry=None, temp_symbols=None):
+    def replace_symbols(self, text, entry=None, additional_symbols=None):
         """
-        Replace symbols in an conv history entry or text
+        Replace symbols in a conv history entry or text
 
         :param text: text with symbols in it
         :param entry: optional, conv history entry to use for replacement
         :param temp_symbols: additional symbols to be replaced
         :return: text with substitutions
         """
-        if not temp_symbols:
-            temp_symbols = {}
-            if entry:
-                if "function_calls" in entry:
-                    if "original_call" in entry["function_calls"]:
-                        temp_symbols["FUNCTION_SEQUENCE"] = entry["function_calls"]["original_call"]
-                    if "return" in entry["function_calls"]:
-                        temp_symbols["FUNCTION_RETURN_VALUE"] = entry["function_calls"]["return"]
-        if self.settings["FUNCTION_AUTOINTEGRATION"]:
-            temp_symbols["FUNCTION_CALL"] = self._build_func_template
+        symbols = dict(self._built_in_symbols, **self.symbols)
+        if additional_symbols:
+            symbols.update(additional_symbols)
+        if entry:
+            if "function_calls" in entry:
+                if "original_call" in entry["function_calls"]:
+                    symbols["FUNCTION_SEQUENCE"] = entry["function_calls"]["original_call"]
+                if "return" in entry["function_calls"]:
+                    symbols["FUNCTION_RETURN_VALUE"] = entry["function_calls"]["return"]
         pattern = r'\[\[(.*?)\]\]'
-        text = re.sub(pattern, lambda match: self._repl(match, text, temp_symbols), text)
+        text = re.sub(pattern, lambda match: self._repl(match, symbols, text), text)
         return text
 
+    # TODO fix
     def save_state(self, path=None):
         """
         Saves the ALMs entire state (excluding the model itself)
@@ -268,6 +307,7 @@ Before you call a function please inform the user so he is aware of possible wai
         :param path: Where to save. If not specified string is returned
         :return: None or state as yaml
         """
+        raise NotImplementedError
         state = {"system_msg": self.system_msg, "conv_history": self.conv_history, "settings": self.settings,
                  "symbols": self.symbols, "preserved_sequences": self.preserved_sequences}
         yaml_str = yaml.dump(state, sort_keys=False)
@@ -278,6 +318,7 @@ Before you call a function please inform the user so he is aware of possible wai
             f.write(yaml_str)
 
     # TODO implement string return
+    # TODO FIX
     def save_history(self, path=None):
         """
         Saves the ALMs conversation history
@@ -285,26 +326,16 @@ Before you call a function please inform the user so he is aware of possible wai
         :param path: Where to save. If not specified string is returned
         :return: None or history as yaml like string
         """
-        yaml_str = yaml.dump(self.conv_history)
-        if not path:
-            return yaml_str
+        self.conversation_history.save_to_yaml(path)
 
-        with open(path, "w") as f:
-            f.write(yaml_str)
-
+    # TODO fix
     def load_history(self, path_or_text):
         """
         Loads a conversation history
 
         :param path_or_text: Either path to a file or a yaml like string
         """
-        if os.path.exists(path_or_text):
-            with open(path_or_text, "r") as f:
-                str = f.read()
-        else:
-            str = path_or_text
-
-        self.conv_history = yaml.full_load(str)
+        self.conversation_history = ConversationTracker.load_from_yaml(path_or_text)
 
     def set_system_message(self, msg, prepend_function_support=True):
         """
@@ -314,8 +345,8 @@ Before you call a function please inform the user so he is aware of possible wai
         :param prepend_function_support: Automatically change message to include function calling
         """
         if prepend_function_support:
-            msg = self.symbols["FUNC_INCLUSION_MESSAGE"] + msg
-        self.system_msg["content"] = msg
+            msg = self.settings.function_inclusion_instruction_system_msg
+        self.system_msg = msg
 
     @abstractmethod
     def tokenize(self, text):
@@ -395,32 +426,18 @@ Before you call a function please inform the user so he is aware of possible wai
         """
         Remove all tracker entries
         """
-        self.conv_history = []
+        self.conversation_history.reset_tracker()
 
-    def add_tracker_entry(self, role, content=None, meta=None, function_calls=None, context=None, feedback=None,
+    def add_tracker_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
                           sentiment=None, add_keys=None):
         """
         Add a new entry to the tracker. More info is in
         https://github.com/finnschwall/PyALM/blob/main/format_specifications.md
         """
-
-        role = _get_enum_value(role, ConversationRoles)
-
-        msg = {"role": role}
-        excl = ["msg", "role", "add_keys", "excl", "loc", "self"]
-        loc = locals()
-        for i in loc:
-            if i in excl:
-                continue
-            if loc[i]:
-                msg[i] = loc[i]
-        if add_keys:
-            msg = msg | add_keys
-            msg = {"role": role}
-        self.conv_history.append(msg)
-
-    # @staticmethod
-    # def functions_to_dict(functions):
+        loc_dic = locals()
+        del loc_dic["self"]
+        del loc_dic["role"]
+        self.conversation_history.add_entry(role, **loc_dic)
 
     def register_functions(self, functions):
         """
@@ -434,17 +451,16 @@ Before you call a function please inform the user so he is aware of possible wai
         if len(functions) == 0:
             raise Exception("List is empty")
         dic_list = []
-        self.symbols["LIST_OF_FUNCTIONS"] = ""
+        self._temp_symbols["LIST_OF_FUNCTIONS"] = ""
         try:
             for i in functions:
                 func_as_dic = python_parsing.function_signature_to_dict(i)
                 pydoc = python_parsing.generate_python_doc(func_as_dic["name"], func_as_dic)
-                self.symbols["LIST_OF_FUNCTIONS"] += pydoc + "\n"
+                self._temp_symbols["LIST_OF_FUNCTIONS"] += pydoc + "\n"
                 func_as_dic["pydoc"] = pydoc
                 func_as_dic["callback"] = i
                 dic_list.append(func_as_dic)
-                self.func_map[func_as_dic["name"]] = i
-            self.available_functions = dic_list
+                self.available_functions[func_as_dic["name"]] = i
         except Exception as e:
             self.symbols["LIST_OF_FUNCTIONS"] = "No functions available"
             raise e
@@ -466,19 +482,19 @@ Before you call a function please inform the user so he is aware of possible wai
         :param kwargs: kwargs
         :return: completion
         """
-        self.finish_meta["function_call"] = {"found": False}
-        self.generated_text = ""
-        if not self.prompt_text_is_str:
+        self.finish_meta = dict(self._finish_meta_template)
+        self.raw_generated_text = ""
+        if not self.settings.prompt_obj_is_str:
             chat = True
         if enable_function_calls is None:
-            enable_function_calls = self.settings["FUNCTIONS_ENABLED"]
+            enable_function_calls = self.settings.global_enable_function_calls
 
         start = timer()
         if not verbose:
             verbose = self.verbose
 
         if not stop:
-            stop=[]
+            stop = []
 
         if isinstance(stop, str):
             stop = [stop]
@@ -486,7 +502,7 @@ Before you call a function please inform the user so he is aware of possible wai
         if enable_function_calls:
             if not chat:
                 warn("Enabling function calls in non-chat scenario can lead to strange results.")
-            stop.append(self.preserved_sequences["functions"]["end"])
+            stop.append(self.settings.function_sequence[1])
 
         add_kwargs = {"stop": stop, "token_prob_delta": token_prob_delta, "token_prob_abs": token_prob_abs}
 
@@ -495,24 +511,24 @@ Before you call a function please inform the user so he is aware of possible wai
                 self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
-            if self.prompt_text_is_str:
+            if self.settings.prompt_obj_is_str:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
             ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
 
-        elif text_obj and self.prompt_text_is_str:
+        elif text_obj and self.settings.prompt_obj_is_str:
             ret_text = self.create_native_completion(text_obj, **add_kwargs, **kwargs)
 
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
-        self.generated_text += ret_text
+        self.raw_generated_text += ret_text
         if not enable_function_calls:
             if chat:
                 self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
-            return self.generated_text
+            return self.raw_generated_text
 
         status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
 
@@ -525,22 +541,22 @@ Before you call a function please inform the user so he is aware of possible wai
                 self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
-            return self.generated_text
-        self.generated_text = new_text + "\n"
+            return self.raw_generated_text
+        self.raw_generated_text = new_text + "\n"
         try:
-            stop.remove(self.preserved_sequences["functions"]["end"])
+            stop.remove(self.settings.function_sequence[1])
         except:
             pass
         prompt_obj = self.build_prompt()
         ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)
 
-        self.generated_text += ret_text
+        self.raw_generated_text += ret_text
 
         if chat:
             self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
-        return self.generated_text
+        return self.raw_generated_text
 
     def _extract_and_handle_functions(self, text, call_functions=True):
         """
@@ -550,8 +566,8 @@ Before you call a function please inform the user so he is aware of possible wai
         :param call_functions: Call or just collect calls and return
         :return:
         """
-        start_seq = self.preserved_sequences["functions"]["start"]
-        end_seq = self.preserved_sequences["functions"]["end"]
+        start_seq = self.settings.function_sequence[1]
+        end_seq = self.settings.function_sequence[1]
         pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
         matches = [(m.group(1), m.span()) for m in re.finditer(pattern, text, re.DOTALL)]
 
@@ -561,7 +577,7 @@ Before you call a function please inform the user so he is aware of possible wai
             matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, text, re.DOTALL)]
 
             if len(matches) == 0:
-                self.parse_status = ParseStatus.NO_FUNC_SEQUENCE_FOUND
+                self.finish_meta["parse_status"] = ParseStatus.NO_FUNC_SEQUENCE_FOUND
                 return ParseStatus.NO_FUNC_SEQUENCE_FOUND, None, None
         func_seq = matches[0][0].strip()
         try:
@@ -569,16 +585,16 @@ Before you call a function please inform the user so he is aware of possible wai
         except Exception as e:
             if call_functions:
                 raise Exception("Models doing stuff wrong is not yet correctly handled")
-            self.parse_status = ParseStatus.UNPARSEABLE_FUNC_FOUND
+            self.finish_meta["parse_status"] = ParseStatus.UNPARSEABLE_FUNC_FOUND
             return ParseStatus.UNPARSEABLE_FUNC_FOUND, func_seq, e
 
         if not call_functions:
             visitor = python_parsing.CodeVisitor(collect=True)
             visitor.visit(ast_obj)
-            self.parse_status = ParseStatus.PARSED_DICT_RETURN
+            self.finish_meta["parse_status"] = ParseStatus.PARSED_DICT_RETURN
             return ParseStatus.PARSED_DICT_RETURN, func_seq, visitor.collection
 
-        visitor = python_parsing.CodeVisitor(self.func_map)
+        visitor = python_parsing.CodeVisitor(self.available_functions)
         visitor.visit(ast_obj)
         if "__call_res__" in visitor.variables:
             ret_val = visitor.variables["__call_res__"]
@@ -590,7 +606,7 @@ Before you call a function please inform the user so he is aware of possible wai
         # new_assistant_text = text[:loc] + "[[ORIGINAL_CALL]]"+
         self.add_tracker_entry(ConversationRoles.ASSISTANT, content=text[:loc] + "[[FUNCTION_CALL]]",
                                function_calls={"original_call": func_seq, "return": ret_val})
-        self.parse_status = ParseStatus.PARSED_EXECUTED_OK
+        self.finish_meta["parse_status"] = ParseStatus.PARSED_EXECUTED_OK
 
         return ParseStatus.PARSED_EXECUTED_OK, func_seq, text[:loc]
 
@@ -598,7 +614,7 @@ Before you call a function please inform the user so he is aware of possible wai
     # but that would break closed source compatability
     def create_generator(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
                          token_prob_delta=None,
-                         token_prob_abs=None, handle_functions=True, stop=[], **kwargs):
+                         token_prob_abs=None, handle_functions=True, stop=None, **kwargs):
         """
         Streaming version of create_generator. Returns generator with automatic prompt building, function calling etc.
 
@@ -614,16 +630,18 @@ Before you call a function please inform the user so he is aware of possible wai
         :param kwargs: kwargs
         :return: completion
         """
-        self.finish_meta["function_call"] = {"found": False}
-        self.generated_text = ""
-        if not self.prompt_text_is_str:
+        self.finish_meta = dict(self._finish_meta_template)
+        self.raw_generated_text = ""
+        if not self.settings.prompt_obj_is_str:
             chat = True
         if enable_function_calls is None:
-            enable_function_calls = self.settings["FUNCTIONS_ENABLED"]
+            enable_function_calls = self.settings.global_enable_function_calls
 
         start = timer()
         if not verbose:
             verbose = self.verbose
+        if not stop:
+            stop = []
 
         if isinstance(stop, str):
             stop = [stop]
@@ -631,7 +649,7 @@ Before you call a function please inform the user so he is aware of possible wai
         if enable_function_calls:
             if not chat:
                 warn("Enabling function calls in non-chat scenario can lead to strange results.")
-            stop.append(self.preserved_sequences["functions"]["end"])
+            stop.append(self.settings.function_sequence[1])
 
         add_kwargs = {"stop": stop, "token_prob_delta": token_prob_delta, "token_prob_abs": token_prob_abs}
 
@@ -640,25 +658,25 @@ Before you call a function please inform the user so he is aware of possible wai
                 self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
-            if self.prompt_text_is_str:
+            if self.settings.prompt_obj_is_str:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
-            # print(prompt_obj)
             token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
                                                            **kwargs)  # return_factory(prompt_obj)
 
-        elif text_obj and self.prompt_text_is_str:
+        elif text_obj and self.settings.prompt_obj_is_str:
             token_generator = self.create_native_generator(text_obj, **add_kwargs, **kwargs)
 
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
         sequences = []
-        for i, x in self.preserved_sequences.items():
-            if not chat and i == "functions":
-                continue
+        for i, x in self.settings.preserved_sequences.items():
             x["type"] = i
             sequences.append(x)
+        if not chat and enable_function_calls:
+            sequences.append({"type": "function_call", "start": self.settings.function_sequence[0],
+                              "end": self.settings.function_sequence[1]})
 
         buffer = []
         buffer_logits = []
@@ -687,8 +705,7 @@ Before you call a function please inform the user so he is aware of possible wai
         with contextlib.redirect_stderr(caught_err):
             for token, logits_or_none in token_generator_with_insertions():
                 if not token is cleanup_sentinel:
-                    # print(token,end="")
-                    self.generated_text += token
+                    self.raw_generated_text += token
                     last_generated_text += token
                     buffer.append(token)
                     buffer_logits.append(logits_or_none)
@@ -732,11 +749,8 @@ Before you call a function please inform the user so he is aware of possible wai
                             sequence_tokens = []
                             yield "".join(buf_temp), None, buf_logits_temp
                     else:
-                        status, seq, new_text = self._extract_and_handle_functions(self.generated_text,
+                        status, seq, new_text = self._extract_and_handle_functions(self.raw_generated_text,
                                                                                    call_functions=handle_functions)
-                        # print()
-                        # print(sequence_tokens)
-                        # print(status,seq,new_text)
                         if status == ParseStatus.NO_FUNC_SEQUENCE_FOUND:
                             yield ''.join(sequence_tokens), "end", logits_or_none
                             break
@@ -759,33 +773,33 @@ Before you call a function please inform the user so he is aware of possible wai
             self.add_tracker_entry(ConversationRoles.ASSISTANT, content=last_generated_text)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
-        # print(tok_list)
 
     def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
         :param new_lines_afer_role: Newlines after role
-        :param block_gen_prefix: Whether to add generation prefix
+        :param block_gen_prefix: Whether to add generation prefix. Normally this leads a prompt to end with e.g.
+        Assistant: so that the model does not continue to write as a user.
         :param raw: If true don't resolve symbols
-        :return:
+        :return: str
         """
 
         def rep_sym(str, entry=None):
-            return str if raw else self._replace_symbols(str, entry)
+            return str if raw else self.replace_symbols(str, entry)
 
         prompt = ""
         after_role = "\n" * new_lines_afer_role if new_lines_afer_role != 0 else " "
-        if "content" in self.system_msg:
-            prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg['content'])}" + "\n" * new_lines_per_role
+        if self.conversation_history.system_message and self.conversation_history.system_message != "":
+            prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg)}" + "\n" * new_lines_per_role
 
-        for i in self.conv_history:
+        for i in self.conversation_history.tracker:
             role = self.symbols[str(i["role"])]
             prompt += f"{role}:{after_role}{rep_sym(i['content'], i)}" + "\n" * new_lines_per_role
         if block_gen_prefix:
             prompt = prompt[:-1]
-        if not block_gen_prefix and "GENERATION_PREFIX" in self.settings and self.settings["GENERATION_PREFIX"] != "":
-            prompt += rep_sym(self.settings["GENERATION_PREFIX"])
+        if not block_gen_prefix and self.settings.generation_prefix and self.settings.generation_prefix != "":
+            prompt += rep_sym(self.settings.generation_prefix)
         return prompt
 
 
@@ -794,7 +808,7 @@ def _get_enum_value(input_value, enum_type):
         try:
             return enum_type[input_value.upper()]
         except KeyError:
-            raise ValueError(f"'{input_value}' not found in {enum_type.__name__} enum.")
+            raise ValueError(f"'{input_value}' not found in {enum_type.__name__}.")
     elif isinstance(input_value, enum_type):
         return input_value
     else:

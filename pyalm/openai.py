@@ -27,10 +27,10 @@ class OpenAI(ALM):
         conv = {"gpt3": "gpt-3.5-turbo", "gpt-3": "gpt-3.5-turbo", "chatgpt": "gpt-3.5-turbo", "gpt4": "gpt-4",
                 "gpt-16k": "gpt-3.5-turbo-16k"}
         self.model = conv.get(model_path_or_name, model_path_or_name)
-        self.symbols["ASSISTANT"] = "assistant"
-        self.symbols["USER"] = "user"
-        self.symbols["SYSTEM"] = "system"
+        openai_specifics = {"ASSISTANT":"assistant", "USER":"user", "SYSTEM":"system"}
+        self._built_in_symbols.update(openai_specifics)
         self.finish_meta = {}
+        self.settings.prompt_obj_is_str = False
 
     # @abstractmethod
     def tokenize(self, text):
@@ -60,8 +60,6 @@ class OpenAI(ALM):
     def create_native_completion(self, text, max_tokens=256, stop=None, keep_dict=False, token_prob_delta=None,
                                  token_prob_abs=None,
                                  log_probs=None, **kwargs):
-        print(stop)
-        return
         if isinstance(text, str):
             raise Exception("Native OpenAI call only supports calls via a json chat format")
         if token_prob_abs:
@@ -135,13 +133,13 @@ class OpenAI(ALM):
 
     def build_prompt(self, conv_history=None, system_msg=None):
         if not conv_history:
-            conv_history = self.conv_history
+            conv_history = self.conversation_history.tracker
         if not system_msg:
-            system_msg = self.system_msg
+            system_msg = self.conversation_history.system_message
         prompt = []
-        if "content" in system_msg:
+        if system_msg and system_msg != "":
             prompt.append({"role": self.symbols["SYSTEM"], "content":
-                self._replace_symbols(system_msg["content"])})
+                self.replace_symbols(system_msg)})
         for i in conv_history:
-            prompt.append({"role": self.symbols[str(i["role"])], "content": self._replace_symbols(i["content"], i)})
+            prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
         return prompt

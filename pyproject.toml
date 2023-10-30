@@ -14,20 +14,19 @@ classifiers = [
 ]
 
 dependencies = [
-
-]
-[project.optional-dependencies]
-normal = [
     "pylot@git+https://github.com/finnschwall/PyLoT",
     "psutil~=5.9.5",
     "tiktoken~=0.5.1",
     "tqdm~=4.66.1",
-    "llama-cpp-python",
     "numpy",
     "docstring_parser==0.15",
     "openai",
     "pyyaml",
-    "aleph_alpha_client"
+    "aleph_alpha_client",
+    "llama-cpp-python",
+]
+[project.optional-dependencies]
+normal = [
 
 ]
 
