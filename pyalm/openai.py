@@ -42,6 +42,7 @@ class OpenAI(ALM):
         encoded = encoding.encode(text)
         return [encoding.decode_single_token_bytes(token).decode("utf-8") for token in encoded]
 
+    # TODO add static variant
     def get_n_tokens(self, text):
         return len(self.tokenize(text))
 

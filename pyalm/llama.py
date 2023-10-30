@@ -88,16 +88,13 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 class LLaMa(ALM):
 
     def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
-                 is_70b=False, disable_log_hook=False, disable_model_load=False, **kwargs):
+                 is_70b=False, disable_log_hook=False,  **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, verbose=verbose)
         self.initial_resource_state = get_resource_info()
         _load = True
         _primary_load = True
         _counter = 0
-        if disable_model_load:
-            self.llm = ""
-            return
 
         if quantize_format == "auto":
             if model_path.endswith("gguf"):
@@ -176,6 +173,7 @@ class LLaMa(ALM):
             if _meta_dic["model size"] != "Unknown":
                 info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
             info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
+            print(info_str)
         self.model_meta_info = _meta_dic
 
     def setup_backend(self):

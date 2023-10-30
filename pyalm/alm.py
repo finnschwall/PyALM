@@ -217,7 +217,7 @@ class ALM:
             "FUNCTION_END": lambda match, symbols, text=None: self.settings.function_sequence[1],
             "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
             "FUNCTION_CALL": lambda match, symbols, text=None: self.replace_symbols(
-                self.settings.function_integration_template, temp_symbols=temp_symbols)}
+                self.settings.function_integration_template, additional_symbols=symbols)}
 
         self.user_symbols = Symbols()
         """
@@ -566,7 +566,7 @@ class ALM:
         :param call_functions: Call or just collect calls and return
         :return:
         """
-        start_seq = self.settings.function_sequence[1]
+        start_seq = self.settings.function_sequence[0]
         end_seq = self.settings.function_sequence[1]
         pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
         matches = [(m.group(1), m.span()) for m in re.finditer(pattern, text, re.DOTALL)]
@@ -674,8 +674,8 @@ class ALM:
         for i, x in self.settings.preserved_sequences.items():
             x["type"] = i
             sequences.append(x)
-        if not chat and enable_function_calls:
-            sequences.append({"type": "function_call", "start": self.settings.function_sequence[0],
+        if chat and enable_function_calls:
+            sequences.append({"type": "function", "start": self.settings.function_sequence[0],
                               "end": self.settings.function_sequence[1]})
 
         buffer = []
@@ -701,7 +701,6 @@ class ALM:
                     break
 
         caught_err = io.StringIO()
-        tok_list = []
         with contextlib.redirect_stderr(caught_err):
             for token, logits_or_none in token_generator_with_insertions():
                 if not token is cleanup_sentinel:
