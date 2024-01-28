@@ -16,6 +16,14 @@ import dataclasses as dc  # import dataclass, asdict, field
 from abc import ABC, abstractmethod
 
 
+class ConversationRoles(enum.Enum):
+    USER = "USER"
+    ASSISTANT = "ASSISTANT"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 @dc.dataclass
 class DataYAML(ABC):
 
@@ -48,13 +56,32 @@ class DataYAML(ABC):
 @dc.dataclass(kw_only=True)
 class ConversationTracker(DataYAML):
     system_message: str = None
+    data: dict = dc.field(default_factory=dict)
     user_info: dict = dc.field(default_factory=dict)
     tracker: list = dc.field(default_factory=list)
+    inversion_scheme: dict = dc.field(default_factory=lambda: {ConversationRoles.USER: ConversationRoles.ASSISTANT,
+                                                               ConversationRoles.ASSISTANT: ConversationRoles.USER})
 
     def reset_tracker(self):
         temp = self.tracker
         self.tracker = []
         return temp
+
+    def invert_roles(self, inversion_scheme=None):
+        if inversion_scheme is None:
+            inversion_scheme = self.inversion_scheme
+        for i, x in enumerate(self.tracker):
+            self.tracker[i]["role"] = inversion_scheme.get(self.tracker[i]["role"], self.tracker[i]["role"])
+        if "system_message2" in self.data:
+            orig_system = self.system_message
+            self.system_message = self.data["system_message2"]
+            self.data["system_message2"] = orig_system
+
+    def __getitem__(self, item):
+        return self.tracker[item]
+
+    def __setitem__(self, key, value):
+        self.tracker[key] = value
 
     def add_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
                   sentiment=None, add_keys=None):
@@ -81,8 +108,8 @@ class ALMSettings(DataYAML):
     preserved_sequences: dict = dc.field(
         default_factory=lambda: {"latex_double": {"start": "$$", "end": "$$", "name": "latex_double_dollar"}})
     function_sequence: tuple = dc.field(default_factory=lambda: ("+++", "---"))
-    global_enable_function_calls: bool = True
-    automatic_function_integration: bool = True
+    global_enable_function_calls: bool = False
+    automatic_function_integration: bool = False
     function_integration_template: str = "\n[[FUNCTION_START]][[FUNCTION_SEQUENCE]][[FUNCTION_END]]\n" \
                                          "[[FUNCTION_END]][[FUNCTION_RETURN_VALUE]][[FUNCTION_START]]"
     generation_prefix: str = "[[ASSISTANT]]:"
@@ -113,14 +140,6 @@ def _data_yaml_constructor(loader, node):
 for i in [DataYAML, ConversationTracker]:
     yaml.add_representer(i, _data_yaml_representer)
     yaml.add_constructor('!' + i.__name__, _data_yaml_constructor)
-
-
-class ConversationRoles(enum.Enum):
-    USER = "USER"
-    ASSISTANT = "ASSISTANT"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def conversation_role_representer(dumper, data):
@@ -172,6 +191,7 @@ class Symbols(dict):
 
 
 # TODO move verbose into settings
+# TODO check if tutorial works
 class ALM:
     """
     Base class. Don't instantiate on its own
@@ -203,7 +223,7 @@ class ALM:
     def symbols(self, system_msg):
         raise Exception("Add or modify symbols via 'user_symbols'")
 
-    def __init__(self, model_path_or_name, verbose=0):
+    def __init__(self, model_path_or_name, verbose=0, enable_functions=False):
         self.model = model_path_or_name
 
         self.settings = ALMSettings(verbose=verbose)
@@ -235,12 +255,32 @@ class ALM:
                                       "finish_reason": "Unknown", "timings": {}, }
         self.finish_meta = dict(self._finish_meta_template)
 
+        self.jupyter_gui = False
+
     # TODO implement
     def pop_entry(self):
         """
         Remove last element from conversation tracker. Automatically takes care of e.g. split messages due to function calls.
         :return: The popped entry
         """
+        tracker = self.conversation_history.tracker
+        if len(tracker) == 0:
+            raise Exception("No items to pop")
+        if len(tracker) == 1:
+            return tracker.pop()
+        last_role = tracker[-1]["role"]
+        index = -1
+        for i in range(len(tracker) - 1, -1, -1):
+            if self.conversation_history.inversion_scheme.get(tracker[i]["role"]) == last_role:
+                index = i
+                break
+        if index == -1:
+            temp = tracker
+            self.conversation_history.tracker = []
+            return temp
+        ret = []
+        for i in range(len(tracker) - 1, index, -1):
+            ret.append(tracker.pop(i))
         pass
 
     def adopt_from_alm(self, other: Type['ALM']):
@@ -337,7 +377,7 @@ class ALM:
         """
         self.conversation_history = ConversationTracker.load_from_yaml(path_or_text)
 
-    def set_system_message(self, msg, prepend_function_support=True):
+    def set_system_message(self, msg, prepend_function_support=False):
         """
         Change the system message
 
@@ -428,12 +468,16 @@ class ALM:
         """
         self.conversation_history.reset_tracker()
 
-    def add_tracker_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
+    def add_tracker_entry(self, content, role=None, meta=None, function_calls=None, feedback=None,
                           sentiment=None, add_keys=None):
         """
         Add a new entry to the tracker. More info is in
         https://github.com/finnschwall/PyALM/blob/main/format_specifications.md
         """
+        if not role and len(self.conversation_history.tracker) == 0:
+            role = ConversationRoles.USER
+        elif not role:
+            role = self.conversation_history.inversion_scheme.get(self.conversation_history[-1]["role"])
         loc_dic = locals()
         del loc_dic["self"]
         del loc_dic["role"]
@@ -466,7 +510,7 @@ class ALM:
             raise e
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
-                          token_prob_delta=None, token_prob_abs=None, handle_functions=True, stop=None, **kwargs):
+                          token_prob_delta=None, token_prob_abs=None, handle_functions=None, stop=None, **kwargs):
         """
         Create completion with automatic prompt building, function calling etc.
 
@@ -508,7 +552,7 @@ class ALM:
 
         if chat:
             if text_obj:
-                self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
+                self.add_tracker_entry(text_obj,ConversationRoles.USER )
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
             if self.settings.prompt_obj_is_str:
@@ -525,7 +569,7 @@ class ALM:
         self.raw_generated_text += ret_text
         if not enable_function_calls:
             if chat:
-                self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
+                self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
             return self.raw_generated_text
@@ -538,7 +582,7 @@ class ALM:
 
         if status != ParseStatus.PARSED_EXECUTED_OK:
             if chat:
-                self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
+                self.add_tracker_entry(ret_text,ConversationRoles.ASSISTANT)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
             return self.raw_generated_text
@@ -553,7 +597,7 @@ class ALM:
         self.raw_generated_text += ret_text
 
         if chat:
-            self.add_tracker_entry(ConversationRoles.ASSISTANT, content=ret_text)
+            self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT, )
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
         return self.raw_generated_text
@@ -655,7 +699,7 @@ class ALM:
 
         if chat:
             if text_obj:
-                self.add_tracker_entry(ConversationRoles.USER, content=text_obj)
+                self.add_tracker_entry(text_obj, ConversationRoles.USER)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
             if self.settings.prompt_obj_is_str:
@@ -680,6 +724,7 @@ class ALM:
 
         buffer = []
         buffer_logits = []
+        buffer_str = ""
         sequence_tokens = []
         start_sequence = None
         end_sequence = None
@@ -702,6 +747,7 @@ class ALM:
 
         caught_err = io.StringIO()
         with contextlib.redirect_stderr(caught_err):
+
             for token, logits_or_none in token_generator_with_insertions():
                 if not token is cleanup_sentinel:
                     self.raw_generated_text += token
@@ -744,14 +790,15 @@ class ALM:
                     in_sequence = False
 
                     if not enable_function_calls:
-                        if len(buffer) != 0:
+                        if len(buf_temp) != 0:
                             sequence_tokens = []
                             yield "".join(buf_temp), None, buf_logits_temp
                     else:
                         status, seq, new_text = self._extract_and_handle_functions(self.raw_generated_text,
                                                                                    call_functions=handle_functions)
                         if status == ParseStatus.NO_FUNC_SEQUENCE_FOUND:
-                            yield ''.join(sequence_tokens), "end", logits_or_none
+                            yield "".join(buf_temp), None, buf_logits_temp
+                            # yield ''.join(sequence_tokens), "end", logits_or_none
                             break
                         if status != ParseStatus.PARSED_EXECUTED_OK:
                             self.finish_meta["finish_reason"] = "unparseable function call"
@@ -768,8 +815,9 @@ class ALM:
                         generator_list.append(token_generator_funcs)
                         enable_function_calls = False
                         last_generated_text = ""
+
         if chat:
-            self.add_tracker_entry(ConversationRoles.ASSISTANT, content=last_generated_text)
+            self.add_tracker_entry(last_generated_text, ConversationRoles.ASSISTANT)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
 
@@ -801,6 +849,112 @@ class ALM:
             prompt += rep_sym(self.settings.generation_prefix)
         return prompt
 
+    def _text_callback(self, text):
+        pass
+        # msg = text.value
+        # self.text_input.value="Loading...."
+        # self.text_input.disabled=True
+        # self.get_response()
+        # self.update()
+        # self._display_chat()
+
+    def update_gui(self):
+        if not self.jupyter_gui:
+            warn("GUI not initialized. This has no effect")
+            return
+        messages = ""
+        for i in self.conversation_history.tracker:
+            tok = f""
+            if "tokens" in i:
+                tok = f"{i['tokens']}t"
+            messages += f"""
+            <div class="{'message received' if i['role'] == ConversationRoles.ASSISTANT else ('message sent' if i['role'] == ConversationRoles.USER else 'message system')}">
+                <div class="metadata">
+                    <span class="sender">{self.symbols[str(i["role"])]}</span>
+                    <span class="time">{tok}</span>
+                </div>
+                <div class="text">
+                    {i["content"]}
+                </div>
+            </div>"""
+
+        chat_protocoll = _chat_html.replace("INSERTHEREXYZ", messages)
+        with self._gui_chat_history:
+            clear_output()
+            display(HTML(chat_protocoll))
+        # with self.token_count:
+        #     clear_output()
+        #     display(HTML(f"{self.data['total_token']}t, {round_two_nonzero(self.data['total_dollar'])}$"))
+        # self.text_input.value=""
+        # self.text_input.disabled=False
+
+    def _gui_on_switch(self, btn):
+        self.conversation_history.invert_roles()
+        self.update_gui()
+
+    def _gui_clear_tracker(self, btn):
+        self.conversation_history.tracker = []
+        self.update_gui()
+
+    def _gui_del_message(self, btn):
+        self.pop_entry()
+        self.update_gui()
+
+    def init_gui(self, num_messages_included=4, monkeypatch=True):
+        if self.jupyter_gui:
+            warn("GUI can't be re-inited")
+            return
+        try:
+            from ipywidgets import GridspecLayout, VBox, Box
+            from ipywidgets import Output
+            import ipywidgets as widgets
+            from IPython.display import HTML, clear_output, display
+            globals()["clear_output"] = clear_output
+            globals()["HTML"] = HTML
+        except:
+            raise Exception("Visualization requires ipywidgets, which is not installed!")
+        # grid = GridspecLayout(2, 3)
+
+        clear_tracker_button = widgets.Button(
+            description='Clear history',
+            disabled=False,
+            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
+            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+        )
+        delete_button = widgets.Button(
+            description='Delete last',
+            disabled=False,
+            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
+            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+        )
+        switch_button = widgets.Button(
+            description='Switch roles',
+            disabled=False,
+            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
+            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+        )
+        switch_button.on_click(self._gui_on_switch)
+        delete_button.on_click(self._gui_del_message)
+        clear_tracker_button.on_click(self._gui_clear_tracker)
+
+        buttons = Box([clear_tracker_button, delete_button, switch_button])
+
+        self._gui_chat_history = Output()
+
+        grid = VBox([self._gui_chat_history, buttons])
+
+        self.jupyter_gui = True
+        self.update_gui()
+        original_completion = self.add_tracker_entry
+
+        def tracker_patch(*args, **kwargs):
+            original_completion(*args, **kwargs)
+            self.update_gui()
+
+        setattr(self, "add_tracker_entry", tracker_patch)
+
+        display(grid)
+
 
 def _get_enum_value(input_value, enum_type):
     if isinstance(input_value, str):
@@ -812,3 +966,79 @@ def _get_enum_value(input_value, enum_type):
         return input_value
     else:
         raise TypeError(f"Invalid input type. Expected enum value or string, got {type(input_value).__name__}.")
+
+
+_chat_html = """
+<html>
+<head>
+	<title>Chat Example</title>
+	<style>
+		.container {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			padding: 10px;
+			background-color: #f2f2f2;
+			font-size: 16px;
+			font-family: Arial, sans-serif;
+            overflow: scroll;
+		}
+		.message {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			max-width: 70%;
+			margin-bottom: 10px;
+			padding: 10px;
+			border-radius: 10px;
+			background-color: #fff;
+			box-shadow: 0px 1px 3px rgba(0,0,0,0.2);
+            white-space: pre-line;
+		}
+		.message.sent {
+			align-self: flex-end;
+			background-color: #dcf8c6;
+		}
+		.message.received {
+			align-self: flex-start;
+			background-color: #e6e6e6;
+		}
+        .message.system {
+			align-self: center;
+			background-color: orange;
+		}
+		.message .metadata {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: flex-start;
+			color: #888;
+			font-size: 12px;
+			margin-bottom: 5px;
+		}
+		.message .metadata .time {
+			margin-left: 5px;
+		}
+		.message .text {
+			color: #333;
+			font-size: 14px;
+			line-height: 1.2;
+		}
+	</style>
+</head>
+<body>
+<div style="height:45em">
+	<div class="container">
+        INSERTHEREXYZ
+</div>
+<div id="bottom"></div>
+function bottom() {
+    document.getElementById( 'bottom' ).scrollIntoView();
+    window.setTimeout( function () { top(); }, 2000 );
+};
+
+bottom();
+</body>
+</html>
+
+"""

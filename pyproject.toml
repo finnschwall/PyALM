@@ -16,19 +16,25 @@ classifiers = [
 dependencies = [
     "pylot@git+https://github.com/finnschwall/PyLoT",
     "psutil~=5.9.5",
-    "tiktoken~=0.5.1",
-    "tqdm~=4.66.1",
+#    "tiktoken~=0.5.1",
+#    "tqdm~=4.66.1",
     "numpy",
     "docstring_parser==0.15",
-    "openai",
+#    "openai",
     "pyyaml",
-    "aleph_alpha_client",
-    "llama-cpp-python",
+#    "aleph_alpha_client",
+#    "llama-cpp-python",
 ]
 [project.optional-dependencies]
-normal = [
-
+openai = [
+    "tiktoken~=0.5.1",
+     "openai"
 ]
+aleph_alpha = ["aleph_alpha_client"]
+llama = ["llama-cpp-python"]
+full = ["tiktoken~=0.5.1",
+     "openai","aleph_alpha_client","llama-cpp-python"]
+
 
 
 [project.urls]

@@ -88,7 +88,7 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 class LLaMa(ALM):
 
     def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
-                 is_70b=False, disable_log_hook=False,  **kwargs):
+                 is_70b=False, disable_log_hook=False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, verbose=verbose)
         self.initial_resource_state = get_resource_info()
@@ -174,7 +174,7 @@ class LLaMa(ALM):
                 info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
             info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
             print(info_str)
-        self.model_meta_info = _meta_dic
+        self.model_meta = _meta_dic
 
     def setup_backend(self):
         if self.quantize_format == "ggml":
@@ -229,7 +229,8 @@ class LLaMa(ALM):
         return self.llm.tokenize(bytes(text, "utf-8"))
 
     def create_native_generator(self, text, max_tokens=512, stream=True, endless=False, token_prob_delta=None,
-                                token_prob_abs=None, **kwargs):
+                                token_prob_abs=None, min_p=0.1, top_p=1, top_k=0, temperature=1, repeat_penalty=1.3,
+                                **kwargs):
         # for LLaMA=max tokens -1: shift context, -2 stop when full
 
         def test_lproc_func(input_ids, logits):
@@ -244,14 +245,18 @@ class LLaMa(ALM):
         test_lproc = llama_cpp.LogitsProcessorList([test_lproc_func])
         if endless:
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,
-                                       logits_processor=self.disable_eos_lproc, **kwargs)
+                                       logits_processor=self.disable_eos_lproc,
+                                       min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,
+                                       repeat_penalty=repeat_penalty, **kwargs)
         else:
-            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc, **kwargs)
+            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc,
+                                       min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,
+                                       repeat_penalty=repeat_penalty, **kwargs)
 
         return token_generator
 
     def create_native_completion(self, text, max_tokens=256, stop=None, token_prob_delta=None,
-                                 token_prob_abs=None, log_probs=None, endless=False,**kwargs):
+                                 token_prob_abs=None, log_probs=None, endless=False, **kwargs):
 
         def test_lproc_func(input_ids, logits):
             if token_prob_delta:
@@ -323,7 +328,37 @@ def _build_llama(_Llama):
             super(LlamaBase, self).__init__(*args, **kwargs)
             self.finish_meta = {}
 
-        def _create_completion(
+        def _create_completion(self, *args, **kwargs):
+            gen = super(LlamaBase, self)._create_completion(*args, **kwargs)
+            for i in gen:
+                yield i["choices"][0]["text"], i["choices"][0]["logprobs"]
+
+            tim = llama_cpp.llama_get_timings(self.ctx)
+            tot_ms = tim.t_eval_ms + tim.t_p_eval_ms + tim.t_sample_ms + tim.t_load_ms
+            try:
+                t_intake_per_s = tim.n_p_eval / tim.t_p_eval_ms * 1000
+            except:
+                t_intake_per_s = 0
+            try:
+                t_total_per_s = (tim.n_p_eval + tim.n_eval + 1) / tot_ms * 1000
+            except:
+                t_total_per_s = 0
+            try:
+                t_gen_per_s = (tim.n_eval) / tim.t_eval_ms * 1000
+            except:
+                t_gen_per_s = 0
+            timing_str = f"\nTotal speed:  tokens:\t{tot_ms:<8.0f}ms / {tim.n_p_eval + tim.n_eval + 1:<5.0f} t = {t_total_per_s:<7.2f} t/s\n" \
+                         f"Prompt intake speed\t{tim.t_p_eval_ms:<8.0f}ms / {tim.n_p_eval:<5} t = {t_intake_per_s:<7.2f} t/s\n" \
+                         f"Generation speed:\t{tim.t_eval_ms:<8.0f}ms / {tim.n_eval:<5} t = {t_gen_per_s:<7.2f} t/s"
+
+            self.finish_meta["tokens"] = {"prompt_tokens": tim.n_p_eval, "generated_tokens": tim.n_eval}
+            self.finish_meta["timings"] = {"ms for prompt": tim.t_p_eval_ms, "ms for generation": tim.t_eval_ms,
+                                           "total_time": tot_ms}
+            self.finish_meta["t_per_s"] = {"t_intake_per_s": t_intake_per_s, "token_total_per_s": t_total_per_s,
+                                           "t_gen_per_s": t_gen_per_s}
+            self.finish_meta["timing_str"] = timing_str
+
+        def _create_completion2(
                 self,
                 prompt: str,
                 suffix: Optional[str] = None,
