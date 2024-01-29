@@ -15,7 +15,13 @@ import os
 import dataclasses as dc  # import dataclass, asdict, field
 from abc import ABC, abstractmethod
 
+_autoimport_gui = False
 
+if _autoimport_gui:
+    from ipywidgets import GridspecLayout, VBox, Box
+    from ipywidgets import Output
+    import ipywidgets as widgets
+    from IPython.display import HTML, clear_output, display
 class ConversationRoles(enum.Enum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
@@ -900,6 +906,14 @@ class ALM:
         self.pop_entry()
         self.update_gui()
 
+    def autoconverse(self, interactions = 3):
+        for i in range(interactions):
+            print(f"Interaction {i}\n-----------\n")
+            gen = self.create_generator()
+            for i in gen:
+                print(i[0], end="")
+            self.conversation_history.invert_roles()
+
     def init_gui(self, num_messages_included=4, monkeypatch=True):
         if self.jupyter_gui:
             warn("GUI can't be re-inited")
@@ -911,6 +925,7 @@ class ALM:
             from IPython.display import HTML, clear_output, display
             globals()["clear_output"] = clear_output
             globals()["HTML"] = HTML
+            _autoimport_gui = True
         except:
             raise Exception("Visualization requires ipywidgets, which is not installed!")
         # grid = GridspecLayout(2, 3)
@@ -918,20 +933,17 @@ class ALM:
         clear_tracker_button = widgets.Button(
             description='Clear history',
             disabled=False,
-            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
-            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+            button_style='',
         )
         delete_button = widgets.Button(
             description='Delete last',
             disabled=False,
-            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
-            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+            button_style='',
         )
         switch_button = widgets.Button(
             description='Switch roles',
             disabled=False,
-            button_style='',  # 'success', 'info', 'warning', 'danger' or ''
-            # icon='check'  # (FontAwesome names without the `fa-` prefix)
+            button_style='',
         )
         switch_button.on_click(self._gui_on_switch)
         delete_button.on_click(self._gui_del_message)
