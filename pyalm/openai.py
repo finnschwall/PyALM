@@ -36,7 +36,7 @@ class OpenAI(ALM):
         else:
             raise Exception("No openai key set!")
 
-        openai_specifics = {"ASSISTANT":"assistant", "USER":"user", "SYSTEM":"system"}
+        openai_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
         self._built_in_symbols.update(openai_specifics)
         self.settings.prompt_obj_is_str = False
 

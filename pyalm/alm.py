@@ -15,13 +15,7 @@ import os
 import dataclasses as dc  # import dataclass, asdict, field
 from abc import ABC, abstractmethod
 
-_autoimport_gui = False
 
-if _autoimport_gui:
-    from ipywidgets import GridspecLayout, VBox, Box
-    from ipywidgets import Output
-    import ipywidgets as widgets
-    from IPython.display import HTML, clear_output, display
 class ConversationRoles(enum.Enum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
@@ -48,13 +42,15 @@ class DataYAML(ABC):
             f.write(yaml_str)
 
     @classmethod
-    def load_from_yaml(cls, path_or_text):
-        if os.path.exists(path_or_text):
+    def load_from_yaml(cls, path_or_text, is_file=True):
+        if is_file:
             with open(path_or_text, "r") as f:
                 data = f.read()
         else:
             data = path_or_text
         data = yaml.full_load(data)
+        if type(data) is not dict:
+            raise Exception("Input is valid YAML but not valid data")
         instance = cls.from_dict(data)
         return instance
 
@@ -131,6 +127,7 @@ You can and HAVE TO call functions during the text response not in a a separate 
 Before you call a function please inform the user so he is aware of possible waiting times.
 """
     prompt_obj_is_str: bool = True
+    include_conv_id_as_stop = True
 
 
 def _data_yaml_representer(dumper, data):
@@ -375,13 +372,13 @@ class ALM:
         self.conversation_history.save_to_yaml(path)
 
     # TODO fix
-    def load_history(self, path_or_text):
+    def load_history(self, path_or_text, is_file=True):
         """
         Loads a conversation history
 
         :param path_or_text: Either path to a file or a yaml like string
         """
-        self.conversation_history = ConversationTracker.load_from_yaml(path_or_text)
+        self.conversation_history = ConversationTracker.load_from_yaml(path_or_text,is_file)
 
     def set_system_message(self, msg, prepend_function_support=False):
         """
@@ -468,11 +465,16 @@ class ALM:
         """
         raise NotImplementedError()
 
-    def reset_tracker(self):
+    def reset_tracker(self, purge = False):
         """
         Remove all tracker entries
+
+        :param purge: Complete reset including e.g. system message
         """
-        self.conversation_history.reset_tracker()
+        if purge:
+            self.conversation_history = ConversationTracker()
+        else:
+            self.conversation_history.reset_tracker()
 
     def add_tracker_entry(self, content, role=None, meta=None, function_calls=None, feedback=None,
                           sentiment=None, add_keys=None):
@@ -558,10 +560,10 @@ class ALM:
 
         if chat:
             if text_obj:
-                self.add_tracker_entry(text_obj,ConversationRoles.USER )
+                self.add_tracker_entry(text_obj, ConversationRoles.USER)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
-            if self.settings.prompt_obj_is_str:
+            if self.settings.prompt_obj_is_str and self.settings.include_conv_id_as_stop:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
             ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
@@ -588,7 +590,7 @@ class ALM:
 
         if status != ParseStatus.PARSED_EXECUTED_OK:
             if chat:
-                self.add_tracker_entry(ret_text,ConversationRoles.ASSISTANT)
+                self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT)
             end = timer()
             self.finish_meta["total_finish_time"] = end - start
             return self.raw_generated_text
@@ -708,7 +710,7 @@ class ALM:
                 self.add_tracker_entry(text_obj, ConversationRoles.USER)
             prompt_obj = self.build_prompt()
             self.prompt = prompt_obj
-            if self.settings.prompt_obj_is_str:
+            if self.settings.prompt_obj_is_str and self.settings.include_conv_id_as_stop:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
             token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
@@ -866,10 +868,23 @@ class ALM:
 
     def update_gui(self):
         if not self.jupyter_gui:
-            warn("GUI not initialized. This has no effect")
+            # warn("GUI not initialized. This has no effect")
+            self.init_gui()
             return
+        if "markdown" not in globals():
+            from markdown import markdown
+            from IPython.display import HTML, clear_output, display
+            globals()["clear_output"] = clear_output
+            globals()["HTML"] = HTML
+            globals()["display"] = display
+            globals()["markdown"] = markdown
+        gl = globals()
         messages = ""
         for i in self.conversation_history.tracker:
+            text = i["content"]
+            text = re.sub(r'\\\((.*?)\\\)', r'$\1$', text)
+            text = re.sub(r'\\\[(.*?)\\\]', r'$$\1$$', text)
+            text = gl["markdown"](text)
             tok = f""
             if "tokens" in i:
                 tok = f"{i['tokens']}t"
@@ -880,14 +895,14 @@ class ALM:
                     <span class="time">{tok}</span>
                 </div>
                 <div class="text">
-                    {i["content"]}
+                    {text}
                 </div>
             </div>"""
 
         chat_protocoll = _chat_html.replace("INSERTHEREXYZ", messages)
         with self._gui_chat_history:
-            clear_output()
-            display(HTML(chat_protocoll))
+            gl["clear_output"]()
+            gl["display"](gl["HTML"](chat_protocoll))
         # with self.token_count:
         #     clear_output()
         #     display(HTML(f"{self.data['total_token']}t, {round_two_nonzero(self.data['total_dollar'])}$"))
@@ -906,9 +921,9 @@ class ALM:
         self.pop_entry()
         self.update_gui()
 
-    def autoconverse(self, interactions = 3):
+    def autoconverse(self, interactions=3):
         for i in range(interactions):
-            print(f"Interaction {i}\n-----------\n")
+            print(f"\n\nInteraction {i}\n-----------\n")
             gen = self.create_generator()
             for i in gen:
                 print(i[0], end="")
@@ -923,11 +938,13 @@ class ALM:
             from ipywidgets import Output
             import ipywidgets as widgets
             from IPython.display import HTML, clear_output, display
+            from markdown import markdown
             globals()["clear_output"] = clear_output
             globals()["HTML"] = HTML
-            _autoimport_gui = True
+            globals()["display"] = display
+            globals()["markdown"] = markdown
         except:
-            raise Exception("Visualization requires ipywidgets, which is not installed!")
+            raise Exception("Visualization requires ipywidgets and markdown, which is not installed!")
         # grid = GridspecLayout(2, 3)
 
         clear_tracker_button = widgets.Button(

@@ -8,6 +8,9 @@ def __getattr__(name):
     if name.lower() == "alephalpha":
         from .alephalpha import AlephAlpha
         return AlephAlpha
+    if name.lower() == "gemini":
+        from .gemini import Gemini
+        return Gemini
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 from .alm import ConversationRoles, ALM

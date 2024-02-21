@@ -88,10 +88,11 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 class LLaMa(ALM):
 
     def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
-                 is_70b=False, disable_log_hook=False, **kwargs):
+                 is_70b=False, disable_log_hook=False, disable_resource_check= False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, verbose=verbose)
-        self.initial_resource_state = get_resource_info()
+        if not disable_resource_check:
+            self.initial_resource_state = get_resource_info()
         _load = True
         _primary_load = True
         _counter = 0
@@ -145,9 +146,11 @@ class LLaMa(ALM):
             progress_bar.update(1)
         progress_bar.n = 165
         progress_bar.set_description("Finished!", refresh=True)
-        self.after_load_resource_info = get_resource_info()
-
-        self.load_resource_info = get_resource_diff(self.initial_resource_state, self.after_load_resource_info)
+        if not disable_resource_check:
+            self.after_load_resource_info = get_resource_info()
+            self.load_resource_info = get_resource_diff(self.initial_resource_state, self.after_load_resource_info)
+        else:
+            self.load_resource_info = defaultdict
         self.load_resource_info["model_load_time"] = model_load_time
         self.prompt_text_is_str = True
 
