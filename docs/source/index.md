@@ -11,5 +11,6 @@ modules/module_alm.md
 modules/module_llama.md
 modules/module_openai.md
 modules/module_aleph_alpha.md
+modules/module_gemini.md
 modules/module_resources.md
 ```

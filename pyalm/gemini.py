@@ -7,6 +7,9 @@ from timeit import default_timer as timer
 
 
 class Gemini(ALM):
+    """
+    PyALM implementation for Gemini. Requires the Vertex AI SDK to be installed.
+    """
 
     def __init__(self, model_path_or_name="gemini-pro", project=None, verbose=0, location="europe-west3",**kwargs):
         super().__init__(model_path_or_name, verbose=verbose)

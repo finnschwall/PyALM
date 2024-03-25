@@ -566,11 +566,17 @@ class ALM:
             if self.settings.prompt_obj_is_str and self.settings.include_conv_id_as_stop:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
-            ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
-
+            try:
+                ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
+            except Exception as e:
+                self.pop_entry()
+                raise e
         elif text_obj and self.settings.prompt_obj_is_str:
-            ret_text = self.create_native_completion(text_obj, **add_kwargs, **kwargs)
-
+            try:
+                ret_text = self.create_native_completion(text_obj, **add_kwargs, **kwargs)
+            except Exception as e:
+                self.pop_entry()
+                raise e
         if not chat and not text_obj:
             raise Exception("No prompt given!")
 
@@ -713,11 +719,21 @@ class ALM:
             if self.settings.prompt_obj_is_str and self.settings.include_conv_id_as_stop:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
-            token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
+            try:
+                token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
                                                            **kwargs)  # return_factory(prompt_obj)
+            except Exception as e:
+                self.pop_entry()
+                raise e
 
         elif text_obj and self.settings.prompt_obj_is_str:
-            token_generator = self.create_native_generator(text_obj, **add_kwargs, **kwargs)
+            try:
+                token_generator = self.create_native_generator(text_obj, **add_kwargs, **kwargs)
+            except Exception as e:
+                self.pop_entry()
+                raise e
+        # for i in token_generator:
+        #     print(i)
 
         if not chat and not text_obj:
             raise Exception("No prompt given!")
@@ -823,7 +839,7 @@ class ALM:
                         generator_list.append(token_generator_funcs)
                         enable_function_calls = False
                         last_generated_text = ""
-
+        print(caught_err.getvalue())
         if chat:
             self.add_tracker_entry(last_generated_text, ConversationRoles.ASSISTANT)
         end = timer()

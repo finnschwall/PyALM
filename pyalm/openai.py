@@ -1,5 +1,5 @@
 from .alm import ALM
-from openai import OpenAI as _OpenAI
+from openai import OpenAI as _OpenAI, AzureOpenAI as _AzureOpenAI
 import time
 import os
 import tiktoken
@@ -21,7 +21,14 @@ class OpenAI(ALM):
     def get_available_models(self):
         return self.client.models.list().data
 
-    def __init__(self, model_path_or_name, openai_key=None, verbose=0, **kwargs):
+    def __init__(self, model_path_or_name, openai_key=None, verbose=0, azure_endpoint=None, api_version= "2023-05-15",
+                 **kwargs):
+        """
+        :param model_path_or_name: Model name. Must be one of openais available models
+        :param openai_key: OpenAI API key. Can also be set as environment variable OPENAI_API_KEY
+        :param azure_endpoint: Connect to Azure server instead of OpenAI.
+        :param api_version: Azure API version
+        """
         super().__init__(model_path_or_name, verbose=verbose)
 
 
@@ -29,12 +36,27 @@ class OpenAI(ALM):
                 "gpt-16k": "gpt-3.5-turbo-16k"}
         self.model = conv.get(model_path_or_name, model_path_or_name)
 
-        if openai_key:
-            self.client = _OpenAI(api_key=openai_key)
-        elif "OPENAI_API_KEY" in os.environ:
-            self.client = _OpenAI()
+        if azure_endpoint:
+            if openai_key:
+                self.client = _AzureOpenAI(
+                    api_key=openai_key,
+                    api_version=api_version,
+                    azure_endpoint=azure_endpoint
+                )
+            elif "OPENAI_API_KEY" in os.environ:
+                self.client = _AzureOpenAI(
+                    api_version=api_version,
+                    azure_endpoint=azure_endpoint
+                )
+            else:
+                raise Exception("No openai key set!")
         else:
-            raise Exception("No openai key set!")
+            if openai_key:
+                self.client = _OpenAI(api_key=openai_key)
+            elif "OPENAI_API_KEY" in os.environ:
+                self.client = _OpenAI()
+            else:
+                raise Exception("No openai key set!")
 
         openai_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
         self._built_in_symbols.update(openai_specifics)
@@ -59,13 +81,15 @@ class OpenAI(ALM):
         for i in gen:
             try:
                 token = i.choices[0].delta.content
-                finish_reason =  i.choices[0].finish_reason
+                finish_reason = i.choices[0].finish_reason
                 if finish_reason:
                     self.finish_meta["finish_reason"] = finish_reason
                 if token is None:
-                    break
+                    continue
+                    # break
                 yield token, None
-            except:
+            except Exception as e:
+                print(e)
                 pass
             # self.test_txt += token
 
@@ -90,7 +114,8 @@ class OpenAI(ALM):
             response = self.client.chat.completions.create(model=self.model,
             messages=text,
             stop=stop,
-            **kwargs)
+            **kwargs
+            )
         response_txt = response.choices[0].message.content
         end = timer()
 
@@ -132,8 +157,8 @@ class OpenAI(ALM):
             response = self.client.chat.completions.create(model=self.model,
             messages=text,
             stream=True,
-            **kwargs)
-
+            **kwargs
+            )
         if keep_dict:
             return response
         else:
