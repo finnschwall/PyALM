@@ -1,10 +1,8 @@
+# TODO fix this awful naming convention
 def __getattr__(name):
     if name.upper() == "LLAMA":
         from .llama import LLaMa
         return LLaMa
-    if name == "OpenAI":
-        from .openai import OpenAI
-        return OpenAI
     if name.lower() == "alephalpha":
         from .alephalpha import AlephAlpha
         return AlephAlpha
@@ -12,5 +10,5 @@ def __getattr__(name):
         from .gemini import Gemini
         return Gemini
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-
+from .openai import OpenAI
 from .alm import ConversationRoles, ALM

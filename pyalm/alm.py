@@ -226,7 +226,17 @@ class ALM:
     def symbols(self, system_msg):
         raise Exception("Add or modify symbols via 'user_symbols'")
 
+    @property
+    def preserved_sequences(self):
+        return self.settings.preserved_sequences
+
+    @preserved_sequences.setter
+    def preserved_sequences(self, value):
+        self.settings.preserved_sequences = value
+
     def __init__(self, model_path_or_name, verbose=0, enable_functions=False):
+        if enable_functions:
+            self.enable_automatic_function_calls()
         self.model = model_path_or_name
 
         self.settings = ALMSettings(verbose=verbose)
@@ -259,6 +269,10 @@ class ALM:
         self.finish_meta = dict(self._finish_meta_template)
 
         self.jupyter_gui = False
+
+    def enable_automatic_function_calls(self):
+        self.settings.global_enable_function_calls = True
+        self.set_system_message(self.system_msg, prepend_function_support=True)
 
     # TODO implement
     def pop_entry(self):
@@ -378,9 +392,9 @@ class ALM:
 
         :param path_or_text: Either path to a file or a yaml like string
         """
-        self.conversation_history = ConversationTracker.load_from_yaml(path_or_text,is_file)
+        self.conversation_history = ConversationTracker.load_from_yaml(path_or_text, is_file)
 
-    def set_system_message(self, msg, prepend_function_support=False):
+    def set_system_message(self, msg="", prepend_function_support=False):
         """
         Change the system message
 
@@ -388,7 +402,7 @@ class ALM:
         :param prepend_function_support: Automatically change message to include function calling
         """
         if prepend_function_support:
-            msg = self.settings.function_inclusion_instruction_system_msg
+            msg = self.settings.function_inclusion_instruction_system_msg + msg
         self.system_msg = msg
 
     @abstractmethod
@@ -465,7 +479,7 @@ class ALM:
         """
         raise NotImplementedError()
 
-    def reset_tracker(self, purge = False):
+    def reset_tracker(self, purge=False):
         """
         Remove all tracker entries
 
@@ -511,8 +525,8 @@ class ALM:
                 self._temp_symbols["LIST_OF_FUNCTIONS"] += pydoc + "\n"
                 func_as_dic["pydoc"] = pydoc
                 func_as_dic["callback"] = i
-                dic_list.append(func_as_dic)
-                self.available_functions[func_as_dic["name"]] = i
+
+                self.available_functions[func_as_dic["name"]] = func_as_dic
         except Exception as e:
             self.symbols["LIST_OF_FUNCTIONS"] = "No functions available"
             raise e
@@ -540,6 +554,8 @@ class ALM:
             chat = True
         if enable_function_calls is None:
             enable_function_calls = self.settings.global_enable_function_calls
+        if handle_functions is None:
+            handle_functions = enable_function_calls
 
         start = timer()
         if not verbose:
@@ -567,7 +583,8 @@ class ALM:
                 stop.append(self.symbols["USER"])
                 stop.append(self.symbols["ASSISTANT"])
             try:
-                ret_text = self.create_native_completion(prompt_obj, **add_kwargs, **kwargs)  # return_factory(prompt_obj)
+                ret_text = self.create_native_completion(prompt_obj, **add_kwargs,
+                                                         **kwargs)  # return_factory(prompt_obj)
             except Exception as e:
                 self.pop_entry()
                 raise e
@@ -652,7 +669,8 @@ class ALM:
             self.finish_meta["parse_status"] = ParseStatus.PARSED_DICT_RETURN
             return ParseStatus.PARSED_DICT_RETURN, func_seq, visitor.collection
 
-        visitor = python_parsing.CodeVisitor(self.available_functions)
+        visitor = python_parsing.CodeVisitor(
+            {i: self.available_functions[i]["callback"] for i in self.available_functions})
         visitor.visit(ast_obj)
         if "__call_res__" in visitor.variables:
             ret_val = visitor.variables["__call_res__"]
@@ -662,7 +680,7 @@ class ALM:
         loc = text.find(func_seq)
         loc -= len(end_seq)
         # new_assistant_text = text[:loc] + "[[ORIGINAL_CALL]]"+
-        self.add_tracker_entry(ConversationRoles.ASSISTANT, content=text[:loc] + "[[FUNCTION_CALL]]",
+        self.add_tracker_entry(text[:loc] + "[[FUNCTION_CALL]]", ConversationRoles.ASSISTANT,
                                function_calls={"original_call": func_seq, "return": ret_val})
         self.finish_meta["parse_status"] = ParseStatus.PARSED_EXECUTED_OK
 
@@ -721,7 +739,7 @@ class ALM:
                 stop.append(self.symbols["ASSISTANT"])
             try:
                 token_generator = self.create_native_generator(prompt_obj, **add_kwargs,
-                                                           **kwargs)  # return_factory(prompt_obj)
+                                                               **kwargs)  # return_factory(prompt_obj)
             except Exception as e:
                 self.pop_entry()
                 raise e

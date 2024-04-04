@@ -80,6 +80,7 @@ class OpenAI(ALM):
 
         for i in gen:
             try:
+
                 token = i.choices[0].delta.content
                 finish_reason = i.choices[0].finish_reason
                 if finish_reason:
