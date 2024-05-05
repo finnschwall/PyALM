@@ -1,161 +1,15 @@
-from abc import abstractmethod
-import psutil
 import ast
-import enum
 import re
 from timeit import default_timer as timer
-from pylot import python_parsing
 from typing import Type
-from functools import partial
 from warnings import warn
 import contextlib
 import io
-import yaml
-import os
 import dataclasses as dc  # import dataclass, asdict, field
 from abc import ABC, abstractmethod
-
-
-class ConversationRoles(enum.Enum):
-    USER = "USER"
-    ASSISTANT = "ASSISTANT"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-@dc.dataclass
-class DataYAML(ABC):
-
-    def to_dict(self):
-        return dc.asdict(self)
-
-    @classmethod
-    def from_dict(cls, dict_obj):
-        return cls(**dict_obj)
-
-    def save_to_yaml(self, path=None):
-        yaml_str = yaml.dump(self.to_dict(), sort_keys=False)
-        if not path:
-            return yaml_str
-        with open(path, "w") as f:
-            f.write(yaml_str)
-
-    @classmethod
-    def load_from_yaml(cls, path_or_text, is_file=True):
-        if is_file:
-            with open(path_or_text, "r") as f:
-                data = f.read()
-        else:
-            data = path_or_text
-        data = yaml.full_load(data)
-        if type(data) is not dict:
-            raise Exception("Input is valid YAML but not valid data")
-        instance = cls.from_dict(data)
-        return instance
-
-
-@dc.dataclass(kw_only=True)
-class ConversationTracker(DataYAML):
-    system_message: str = None
-    data: dict = dc.field(default_factory=dict)
-    user_info: dict = dc.field(default_factory=dict)
-    tracker: list = dc.field(default_factory=list)
-    inversion_scheme: dict = dc.field(default_factory=lambda: {ConversationRoles.USER: ConversationRoles.ASSISTANT,
-                                                               ConversationRoles.ASSISTANT: ConversationRoles.USER})
-
-    def reset_tracker(self):
-        temp = self.tracker
-        self.tracker = []
-        return temp
-
-    def invert_roles(self, inversion_scheme=None):
-        if inversion_scheme is None:
-            inversion_scheme = self.inversion_scheme
-        for i, x in enumerate(self.tracker):
-            self.tracker[i]["role"] = inversion_scheme.get(self.tracker[i]["role"], self.tracker[i]["role"])
-        if "system_message2" in self.data:
-            orig_system = self.system_message
-            self.system_message = self.data["system_message2"]
-            self.data["system_message2"] = orig_system
-
-    def __getitem__(self, item):
-        return self.tracker[item]
-
-    def __setitem__(self, key, value):
-        self.tracker[key] = value
-
-    def add_entry(self, role, content=None, meta=None, function_calls=None, feedback=None,
-                  sentiment=None, add_keys=None):
-        role = _get_enum_value(role, ConversationRoles)
-
-        entry = {"role": role}
-        if content:
-            entry["content"] = content
-        if meta:
-            entry["meta"] = meta
-        if function_calls:
-            entry["function_calls"] = function_calls
-        if feedback:
-            entry["feedback"] = feedback
-        if add_keys:
-            entry = entry | add_keys
-        self.tracker.append(entry)
-        return entry
-
-
-@dc.dataclass(kw_only=True)
-class ALMSettings(DataYAML):
-    verbose: int = 0
-    preserved_sequences: dict = dc.field(
-        default_factory=lambda: {"latex_double": {"start": "$$", "end": "$$", "name": "latex_double_dollar"}})
-    function_sequence: tuple = dc.field(default_factory=lambda: ("+++", "---"))
-    global_enable_function_calls: bool = False
-    automatic_function_integration: bool = False
-    function_integration_template: str = "\n[[FUNCTION_START]][[FUNCTION_SEQUENCE]][[FUNCTION_END]]\n" \
-                                         "[[FUNCTION_END]][[FUNCTION_RETURN_VALUE]][[FUNCTION_START]]"
-    generation_prefix: str = "[[ASSISTANT]]:"
-
-    function_inclusion_instruction_system_msg = """[[LIST_OF_FUNCTIONS]]
-Above you is a list of functions you can call. To call them enclose them with [[FUNCTION_START]] and end the call with [[FUNCTION_END]].
-The entire sequence must be correct! Do not e.g. leave out the [[FUNCTION_END]].
-This
-[[FUNCTION_START]]foo(bar=3)[[FUNCTION_END]]
-would call the function foo with bar=3. The function(s) will return immediately. The values will be in the inverse sequence of the function enclosement.  
-You can only call the functions listed.
-You can and HAVE TO call functions during the text response not in a a separate response!
-Before you call a function please inform the user so he is aware of possible waiting times.
-"""
-    prompt_obj_is_str: bool = True
-    include_conv_id_as_stop = True
-
-
-def _data_yaml_representer(dumper, data):
-    return dumper.represent_dict({'class': type(data).__name__, 'data': data.to_dict()})
-
-
-def _data_yaml_constructor(loader, node):
-    data = loader.construct_dict(node)
-    cls = globals()[data['class']]
-    return cls.from_dict(data['data'])
-
-
-for i in [DataYAML, ConversationTracker]:
-    yaml.add_representer(i, _data_yaml_representer)
-    yaml.add_constructor('!' + i.__name__, _data_yaml_constructor)
-
-
-def conversation_role_representer(dumper, data):
-    return dumper.represent_scalar('!ConversationRole', str(data))
-
-
-def conversation_role_constructor(loader, node):
-    value = loader.construct_scalar(node)
-    return _get_enum_value(value, ConversationRoles)
-
-
-yaml.add_representer(ConversationRoles, conversation_role_representer)
-yaml.add_constructor('!ConversationRole', conversation_role_constructor)
+import rixaplugin
+from . import system_msg_templates
+from .state import *
 
 
 class FunctionFormat(enum.Enum):
@@ -166,6 +20,11 @@ class FunctionFormat(enum.Enum):
     def __str__(self) -> str:
         return self.value
 
+
+def change_latex_delimiters(latex_str):
+    modified_str = latex_str.replace("\\[", "$$").replace("\\]", "$$")
+    modified_str = modified_str.replace("\\(", "$").replace("\\)", "$")
+    return modified_str
 
 class ParseStatus(enum.Enum):
     """
@@ -219,7 +78,7 @@ class ALM:
     @property
     def symbols(self):
         symbols = dict(self._built_in_symbols, **self.user_symbols)
-        symbols.update(self._temp_symbols)
+        # symbols.update(self._temp_symbols)
         return symbols
 
     @symbols.setter
@@ -235,6 +94,7 @@ class ALM:
         self.settings.preserved_sequences = value
 
     def __init__(self, model_path_or_name, verbose=0, enable_functions=False):
+        self.code_calls = None
         if enable_functions:
             self.enable_automatic_function_calls()
         self.model = model_path_or_name
@@ -245,19 +105,48 @@ class ALM:
 
         self.conversation_history = ConversationTracker()
 
+        self.include_context_msg = True
+        self.include_function_msg = True
+        self.code_call_sys_msg = system_msg_templates.function_call_msg
+        self.context_sys_msg = system_msg_templates.context_msg
+        self.context_with_code_sys_msg = system_msg_templates.context_with_code_msg
+        self.system_msg_template = "[[CODE_CALL_SYSTEM_MSG]]\n[[CONTEXT_SYSTEM_MSG]]\n[[USR_SYSTEM_MSG]]"
+
+        self.code_callback = rixaplugin.execute_code
+        """
+        Function that will be called to execute code
+        """
+        def _include_code_call_sys_msg(match, symbols, text=None):
+            if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols["LIST_OF_FUNCTIONS"] != "":
+                return self.code_call_sys_msg
+            else:
+                return ""
+        def _include_context_sys_msg(match, symbols, text=None):
+            if self.include_context_msg and self.symbols.get("CONTEXT") and self.symbols["CONTEXT"] != "":
+                if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols[
+                    "LIST_OF_FUNCTIONS"] != "":
+                    return self.context_with_code_sys_msg
+                else:
+                    return self.context_sys_msg
+            else:
+                return ""
         self._built_in_symbols = {
             "FUNCTION_START": lambda match, symbols, text=None: self.settings.function_sequence[0],
             "FUNCTION_END": lambda match, symbols, text=None: self.settings.function_sequence[1],
             "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
             "FUNCTION_CALL": lambda match, symbols, text=None: self.replace_symbols(
-                self.settings.function_integration_template, additional_symbols=symbols)}
+                self.settings.function_integration_template, additional_symbols=symbols),
+        "CODE_CALL_SYSTEM_MSG" : _include_code_call_sys_msg,
+        "CONTEXT_SYSTEM_MSG" : _include_context_sys_msg,
+        "USR_SYSTEM_MSG":""}
+
+
 
         self.user_symbols = Symbols()
         """
         Variable symbols that will get replaced when building prompt. Either string or function pointer 
         """
 
-        self._temp_symbols = {}
         # TODO modify PyLoT so that this works with doc, signature etc. included
         self.available_functions = {}
         """Function names and the callable functions available for the model"""
@@ -490,46 +379,12 @@ class ALM:
         else:
             self.conversation_history.reset_tracker()
 
-    def add_tracker_entry(self, content, role=None, meta=None, function_calls=None, feedback=None,
-                          sentiment=None, add_keys=None):
+    def add_tracker_entry(self,*args,**kwargs):
         """
         Add a new entry to the tracker. More info is in
         https://github.com/finnschwall/PyALM/blob/main/format_specifications.md
         """
-        if not role and len(self.conversation_history.tracker) == 0:
-            role = ConversationRoles.USER
-        elif not role:
-            role = self.conversation_history.inversion_scheme.get(self.conversation_history[-1]["role"])
-        loc_dic = locals()
-        del loc_dic["self"]
-        del loc_dic["role"]
-        self.conversation_history.add_entry(role, **loc_dic)
-
-    def register_functions(self, functions):
-        """
-        Add functions to be callable by the model
-
-        :param functions: Function or list of functions
-        :return:
-        """
-        if not isinstance(functions, list):
-            functions = [functions]
-        if len(functions) == 0:
-            raise Exception("List is empty")
-        dic_list = []
-        self._temp_symbols["LIST_OF_FUNCTIONS"] = ""
-        try:
-            for i in functions:
-                func_as_dic = python_parsing.function_signature_to_dict(i)
-                pydoc = python_parsing.generate_python_doc(func_as_dic["name"], func_as_dic)
-                self._temp_symbols["LIST_OF_FUNCTIONS"] += pydoc + "\n"
-                func_as_dic["pydoc"] = pydoc
-                func_as_dic["callback"] = i
-
-                self.available_functions[func_as_dic["name"]] = func_as_dic
-        except Exception as e:
-            self.symbols["LIST_OF_FUNCTIONS"] = "No functions available"
-            raise e
+        self.conversation_history.add_entry(*args,**kwargs)
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
                           token_prob_delta=None, token_prob_abs=None, handle_functions=None, stop=None, **kwargs):
@@ -632,6 +487,85 @@ class ALM:
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
         return self.raw_generated_text
+
+    def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg = None, code_calls=0):
+
+        self.finish_meta = dict(self._finish_meta_template)
+        self.raw_generated_text = ""
+        start = timer()
+        if conv_tracker:
+            self.conversation_history = conv_tracker
+
+        self.user_symbols["LIST_OF_FUNCTIONS"] = ""
+        self.user_symbols["CONTEXT"] = ""
+
+        if func_list:
+            self.user_symbols["LIST_OF_FUNCTIONS"] = func_list
+
+        if context:
+            self.user_symbols["CONTEXT"] = context
+        prompt_obj = self.build_prompt()
+        self.prompt = prompt_obj
+
+        from pprint import pprint
+        # print(prompt_obj[0]["content"])
+        # pprint(prompt_obj, width=120)
+
+        try:
+            print("CALLING MODEL")
+            # print(self.build_prompt_as_str(use_build_prompt=True))
+            ret_text = self.create_native_completion(prompt_obj, )
+            print("RETURN FROM MODEL\n"+ret_text)
+        except Exception as e:
+            self.pop_entry()
+            raise e
+
+
+        start_seq = self.settings.function_sequence[0]
+        end_seq = self.settings.function_sequence[1]
+        pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
+        matches = [(m.group(1), m.span()) for m in re.finditer(pattern, ret_text, re.DOTALL)]
+
+        if len(matches) == 0:
+            ret_text_copy = ret_text+ end_seq
+            pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
+            matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, ret_text_copy, re.DOTALL)]
+            if len(matches) == 0:
+                self.conversation_history.add_entry(change_latex_delimiters(ret_text), ConversationRoles.ASSISTANT)
+                return self.conversation_history
+        func_seq = matches[0][0]
+        code_calls+=1
+        if code_calls >= 3:
+            self.conversation_history.add_entry("Sorry but something has gone wrong when trying to fetch info from the server.", role = ConversationRoles.ASSISTANT
+            )
+            return self.conversation_history
+        try:
+            if "#TO_USER" in func_seq:
+                func_seq_truncated = func_seq.strip()#.replace("#TO_USER", "").strip()
+                return_from_code = self.code_callback(func_seq_truncated)
+                kwarg_dic = {"code":func_seq_truncated, "return_value":return_from_code}
+                trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0],"").replace(self.settings.function_sequence[1],"").strip()
+                if trunced_text != "":
+                    self.conversation_history.add_entry(change_latex_delimiters(trunced_text), ConversationRoles.ASSISTANT, **kwarg_dic)
+                else:
+                    self.conversation_history.add_entry(ConversationRoles.ASSISTANT, **kwarg_dic)
+                return self.conversation_history
+            else:
+                return_from_code = self.code_callback.execute_code(func_seq.strip())
+                self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq,
+                                                    return_value=return_from_code)
+                self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls)
+
+
+        except Exception as e:
+            self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq,
+                                                return_value="EXECUTION FAILED. REASON: " + str(e))
+            self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls)
+        end = timer()
+        self.finish_meta["total_finish_time"] = end - start
+        return self.conversation_history
+
+
 
     def _extract_and_handle_functions(self, text, call_functions=True):
         """
@@ -863,7 +797,8 @@ class ALM:
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
 
-    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False):
+    def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False,
+                            include_system_msg = True, use_build_prompt=False):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
@@ -873,23 +808,50 @@ class ALM:
         :param raw: If true don't resolve symbols
         :return: str
         """
+        if use_build_prompt:
+            prompt_obj = self.build_prompt()
+            prompt_str = ""
+            for i in prompt_obj:
+                prompt_str += f"{i['role']}:{i['content']}\n"
+            return prompt_str
+
 
         def rep_sym(str, entry=None):
             return str if raw else self.replace_symbols(str, entry)
 
         prompt = ""
         after_role = "\n" * new_lines_afer_role if new_lines_afer_role != 0 else " "
-        if self.conversation_history.system_message and self.conversation_history.system_message != "":
-            prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg)}" + "\n" * new_lines_per_role
+        if include_system_msg:
+            if self.conversation_history.system_message and self.conversation_history.system_message != "":
+                prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg)}" + "\n" * new_lines_per_role
 
         for i in self.conversation_history.tracker:
             role = self.symbols[str(i["role"])]
-            prompt += f"{role}:{after_role}{rep_sym(i['content'], i)}" + "\n" * new_lines_per_role
+            if "code" in i and i["code"]:
+                code_str = "CODE_START\n" + i["code"] + "\nCODE_START"
+                if "return_value" in i and i["return_value"]:
+                    code_str += "\nRETURN:\n" + i["return_value"]
+                else:
+                    code_str += "\nRETURN:\nNone"
+                prompt += f"{role}:{after_role}{code_str}" + "\n" * new_lines_per_role
+            else:
+                prompt += f"{role}:{after_role}{rep_sym(i['content'], i)}" + "\n" * new_lines_per_role
         if block_gen_prefix:
             prompt = prompt[:-1]
         if not block_gen_prefix and self.settings.generation_prefix and self.settings.generation_prefix != "":
             prompt += rep_sym(self.settings.generation_prefix)
         return prompt
+
+    # for i in conv_history:
+    #     if "code" in i and i["code"]:
+    #         code_str = "CODE_START\n" + i["code"] + "\nCODE_START"
+    #         if "return_value" in i and i["return_value"]:
+    #             code_str += "\nRETURN:\n" + i["code_return_val"]
+    #         else:
+    #             code_str += "\nRETURN:\nNone"
+    #         prompt.append({"role": self.symbols["SYSTEM"], "content": code_str})
+    #     else:
+    #         prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
 
     def _text_callback(self, text):
         pass
@@ -1017,18 +979,6 @@ class ALM:
         setattr(self, "add_tracker_entry", tracker_patch)
 
         display(grid)
-
-
-def _get_enum_value(input_value, enum_type):
-    if isinstance(input_value, str):
-        try:
-            return enum_type[input_value.upper()]
-        except KeyError:
-            raise ValueError(f"'{input_value}' not found in {enum_type.__name__}.")
-    elif isinstance(input_value, enum_type):
-        return input_value
-    else:
-        raise TypeError(f"Invalid input type. Expected enum value or string, got {type(input_value).__name__}.")
 
 
 _chat_html = """

@@ -1,3 +1,4 @@
+from . import ConversationRoles
 from .alm import ALM
 from openai import OpenAI as _OpenAI, AzureOpenAI as _AzureOpenAI
 import time
@@ -61,6 +62,7 @@ class OpenAI(ALM):
         openai_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
         self._built_in_symbols.update(openai_specifics)
         self.settings.prompt_obj_is_str = False
+        self.total_tokens = 0
 
     # @abstractmethod
     def tokenize(self, text):
@@ -124,8 +126,10 @@ class OpenAI(ALM):
         tok_in = response.usage.prompt_tokens
         tok_gen = response.usage.completion_tokens
         tok_total = response.usage.total_tokens
+        print(f"Tokens: {tok_in}, {tok_gen}, {tok_total}")
 
         self.finish_meta["tokens"] = {"prompt_tokens": tok_in, "generated_tokens": tok_gen, "total_tokens": tok_total}
+        self.total_tokens += tok_total
         self.finish_meta["timings"] = {"total_time": round(end - start,3)}
         self.finish_meta["t_per_s"] = {"token_total_per_s": (tok_total) / (end - start)}
 
@@ -169,11 +173,44 @@ class OpenAI(ALM):
         if not conv_history:
             conv_history = self.conversation_history.tracker
         if not system_msg:
-            system_msg = self.conversation_history.system_message
+
+            if self.conversation_history.system_message:
+                system_msg = self.conversation_history.system_message
+            else:
+                system_msg = self.replace_symbols(self.replace_symbols(self.system_msg_template))
+        if system_msg and len(system_msg) <3:
+            system_msg = None
         prompt = []
+
         if system_msg and system_msg != "":
-            prompt.append({"role": self.symbols["SYSTEM"], "content":
+            prompt.insert(0, {"role": self.symbols["SYSTEM"], "content":
                 self.replace_symbols(system_msg)})
+
+
         for i in conv_history:
-            prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
+            prompt_content = ""
+            if "content" in i and i["content"]:
+                prompt_content = self.replace_symbols(i["content"], i)
+            if "code" in i and i["code"]:
+                code_str = f"\n{self.settings.function_sequence[0]}\n"+i["code"]+f"\n{self.settings.function_sequence[1]}"
+                if "return_value" in i and i["return_value"]:
+                    code_str += "\nRETURN:\n"+i["return_value"]
+                else:
+                    code_str += "\nRETURN:\nNone(OK)"
+                prompt_content += code_str
+            if prompt_content:
+                prompt.append({"role": self.symbols[str(i["role"])], "content": prompt_content})
+            # if "code" in i and i["code"]:
+            #     code_str = "CODE_START\n"+i["code"]+"\nCODE_START"
+            #     if "return_value" in i and i["return_value"]:
+            #         code_str += "\nRETURN:\n"+i["return_value"]
+            #     else:
+            #         code_str += "\nRETURN:\nNone"
+            #     prompt.append({"role": self.symbols[str(i["role"])], "content":code_str})
+            # else:
+            #     prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
+        if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
+            last_usr_entry, depth = self.conversation_history.get_last_message(ConversationRoles.USER, True)
+            if depth == 0 and last_usr_entry:
+                prompt[-1]["content"] = "#CONTEXT_START\n"+ self.symbols["CONTEXT"]+"\n#CONTEXT_END\n" + prompt[-1]["content"]
         return prompt

@@ -50,14 +50,17 @@ _exp_max_char = 700
 
 _meta_dic = {"n_ctx": "Unknown", "n_layer": "Unknown", "model type": "Unknown", "model size": "Unknown",
              "model ftype": "Unknown", "general.name": "Unknown", "n_ctx_train": "Unknown"}
-
+_meta_dic_new = {}
+load_tensor = ""
 n_gpu_layers = -1
 
 _counter = 0
 
+# TODO add
+# llama_cpp.llama_supports_gpu_offload()
 
 def _log_callback(level: int, text: str, user_data: ctypes.c_void_p):
-    global _max_level, _load, _exp_max_char, _primary_load, _counter, _meta_dic
+    global _max_level, _load, _exp_max_char, _primary_load, _counter, _meta_dic, _meta_dic_new, load_tensor
     _counter += 1
     if level < _max_level:
         print(text.decode('utf-8'), end="")
@@ -65,6 +68,15 @@ def _log_callback(level: int, text: str, user_data: ctypes.c_void_p):
         start = "llm_load_print_meta: "
         start_ggml = "llama_model_load_internal: "
         text = text.decode('utf-8')
+
+        if text.startswith("llm_load_tensors"):
+            load_tensor += text.split(": ")[1]
+            try:
+                key, val = text.split(": ")[1].split(" = ")
+                _meta_dic_new[key] = val
+            except:
+                pass
+
         for i in _meta_dic.keys():
             if text.startswith(start + i) or text.startswith(start_ggml + i):
                 _meta_dic[i] = text.split("= ")[1][:-1]
@@ -88,7 +100,7 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 class LLaMa(ALM):
 
     def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
-                 is_70b=False, disable_log_hook=False, disable_resource_check= False, **kwargs):
+                 is_70b=False, disable_log_hook=False, disable_resource_check= False, use_gguf_chat_template=False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, verbose=verbose)
         if not disable_resource_check:
@@ -96,6 +108,7 @@ class LLaMa(ALM):
         _load = True
         _primary_load = True
         _counter = 0
+        self.use_gguf_chat_template = use_gguf_chat_template
 
         if quantize_format == "auto":
             if model_path.endswith("gguf"):
@@ -141,6 +154,11 @@ class LLaMa(ALM):
             [partial(_ban_eos_logits_processor, self.llm.token_eos())])
         token_generator = self.llm("Once upon a time", max_tokens=15, logits_processor=self.disable_eos_lproc,
                                    stream=True)
+        # TODO auto fetch from something like here https://github.com/lmstudio-ai/configs/blob/main/llama3.preset.json#L13
+        # or add support for reading from JSON
+        llama_specifics = {"ASSISTANT": "ASSISTANT", "USER": "USER", "SYSTEM":"SYSTEM"
+                           }
+        self._built_in_symbols.update(llama_specifics)
 
         for i in token_generator:
             progress_bar.update(1)
@@ -158,26 +176,52 @@ class LLaMa(ALM):
             n_layers = int(_meta_dic["n_layer"])
             n_gpu_layers = min(n_layers, n_gpu_layers)
 
+
+        info_str = f"LLM load time:\t{self.load_resource_info['model_load_time']:<5.2f}s\n" \
+                   f"VRAM used/rem:\t{self.load_resource_info['vram_diff']:<5.0f}mb/{self.after_load_resource_info['tot_free_vram']:<5.0f}mb\n" \
+                   f"RAM used/rem:\t{self.load_resource_info['ram_diff']:<5.0f}mb/{self.after_load_resource_info['available_cpu_mem']:<5.0f}mb\n" \
+                   f"CPU time:\t{self.load_resource_info['cpu_time_diff']:<5.2f}s"
+        if _meta_dic["n_layer"] != "Unknown":
+            info_str += f"\nN layers:\t{n_layers:<5.0f}"
+            if n_gpu_layers > 0:
+                info_str += f"\n~VRAM per layer:{self.load_resource_info['vram_diff'] / n_gpu_layers:<5.0f}mb"
+                if n_gpu_layers < n_layers:
+                    info_str += f"\nExp max VRAM:\t{self.load_resource_info['vram_diff'] / n_gpu_layers * n_layers:<5.0f}mb"
+        if _meta_dic["n_ctx"] != "Unknown":
+            info_str += f"\nSet ctx:\t{_meta_dic['n_ctx']:<5}"
+        if _meta_dic["n_ctx_train"] != "Unknown":
+            info_str += f"\nMax ctx:\t{_meta_dic['n_ctx_train']:<5}"
+        if _meta_dic["model size"] != "Unknown":
+            info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
+        info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
+        self.info_str = info_str
         if verbose:
-            info_str = f"LLM load time:\t{self.load_resource_info['model_load_time']:<5.2f}s\n" \
-                       f"VRAM used/rem:\t{self.load_resource_info['vram_diff']:<5.0f}mb/{self.after_load_resource_info['tot_free_vram']:<5.0f}mb\n" \
-                       f"RAM used/rem:\t{self.load_resource_info['ram_diff']:<5.0f}mb/{self.after_load_resource_info['available_cpu_mem']:<5.0f}mb\n" \
-                       f"CPU time:\t{self.load_resource_info['cpu_time_diff']:<5.2f}s"
-            if _meta_dic["n_layer"] != "Unknown":
-                info_str += f"\nN layers:\t{n_layers:<5.0f}"
-                if n_gpu_layers > 0:
-                    info_str += f"\n~VRAM per layer:{self.load_resource_info['vram_diff'] / n_gpu_layers:<5.0f}mb"
-                    if n_gpu_layers < n_layers:
-                        info_str += f"\nExp max VRAM:\t{self.load_resource_info['vram_diff'] / n_gpu_layers * n_layers:<5.0f}mb"
-            if _meta_dic["n_ctx"] != "Unknown":
-                info_str += f"\nSet ctx:\t{_meta_dic['n_ctx']:<5}"
-            if _meta_dic["n_ctx_train"] != "Unknown":
-                info_str += f"\nMax ctx:\t{_meta_dic['n_ctx_train']:<5}"
-            if _meta_dic["model size"] != "Unknown":
-                info_str += f"\nParam count:\t{_meta_dic['model size']:<5}"
-            info_str += f"\nEstimated t/s:\t{self.finish_meta['t_per_s']['t_gen_per_s']:<5.2f}"
             print(info_str)
         self.model_meta = _meta_dic
+
+        try:
+            template = self.llm.metadata["tokenizer.chat_template"]
+
+            try:
+                eos_token_id = int(self.llm.metadata["tokenizer.ggml.eos_token_id"])
+            except:
+                eos_token_id = self.llm.token_eos()
+            try:
+                bos_token_id = int(self.llm.metadata["tokenizer.ggml.bos_token_id"])
+            except:
+                bos_token_id = self.llm.token_bos()
+
+            eos_token = self.llm._model.token_get_text(eos_token_id)
+            eos_token = "<|eot_id|>" #bug in the gguf file for llama3
+            bos_token = self.llm._model.token_get_text(bos_token_id)
+
+            self.chat_handler = llama_cpp.llama_chat_format.Jinja2ChatFormatter(
+                template=template,
+                eos_token=eos_token,
+                bos_token=bos_token,
+                stop_token_ids=[eos_token_id])
+        except:
+            self.use_gguf_chat_template = False
 
     def setup_backend(self):
         if self.quantize_format == "ggml":
@@ -232,7 +276,7 @@ class LLaMa(ALM):
         return self.llm.tokenize(bytes(text, "utf-8"))
 
     def create_native_generator(self, text, max_tokens=512, stream=True, endless=False, token_prob_delta=None,
-                                token_prob_abs=None, min_p=0.1, top_p=1, top_k=0, temperature=1, repeat_penalty=1.3,
+                                token_prob_abs=None, stop=None,#min_p=0.1, top_p=1, top_k=0, temperature=1, repeat_penalty=1.3,
                                 **kwargs):
         # for LLaMA=max tokens -1: shift context, -2 stop when full
 
@@ -246,15 +290,18 @@ class LLaMa(ALM):
             return logits
 
         test_lproc = llama_cpp.LogitsProcessorList([test_lproc_func])
+        if self.use_gguf_chat_template:
+            stop = ["<|eot_id|>"]
         if endless:
             token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,
-                                       logits_processor=self.disable_eos_lproc,
-                                       min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,
-                                       repeat_penalty=repeat_penalty, **kwargs)
+                                       logits_processor=self.disable_eos_lproc,stop=stop,
+                                       # min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,repeat_penalty=repeat_penalty,
+                                       **kwargs)
         else:
-            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream, logits_processor=test_lproc,
-                                       min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,
-                                       repeat_penalty=repeat_penalty, **kwargs)
+            token_generator = self.llm(text, max_tokens=max_tokens, stream=stream,  stop=stop,
+                                       #logits_processor=test_lproc,
+                                       # min_p=min_p, top_p=top_p, top_k=top_k, temperature=temperature,repeat_penalty=repeat_penalty,
+                                       **kwargs)
 
         return token_generator
 
@@ -282,14 +329,32 @@ class LLaMa(ALM):
                                            **kwargs)
             else:
                 token_generator = self.llm(text, logits_processor=test_lproc, **call_dic, **kwargs)
-        # print("here")
-        # print(token_generator)
-        # print()
-        print(repr(token_generator))
         return token_generator.strip()
 
-    def build_prompt(self, preserve_flow=False):
-        return self.build_prompt_as_str(1, 0, block_gen_prefix=preserve_flow)
+    def build_prompt(self, conv_history=None, system_msg=None,  preserve_flow=False):
+        if not self.use_gguf_chat_template:
+            return self.build_prompt_as_str(1, 0, block_gen_prefix=preserve_flow)
+
+        if not conv_history:
+            conv_history = self.conversation_history.tracker
+        if not system_msg:
+            system_msg = self.conversation_history.system_message
+        prompt = []
+        if system_msg and system_msg != "":
+            prompt.append({"role": self.symbols["SYSTEM"], "content":
+                self.replace_symbols(system_msg)})
+        for i in conv_history:
+            prompt.append({"role": self.symbols[str(i["role"])], "content": i["content"]})
+            # prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
+
+        prompt = self.chat_handler._environment.render(
+            messages=prompt,
+            eos_token=self.chat_handler.eos_token,
+            bos_token=self.chat_handler.bos_token,
+        )
+        return prompt
+
+
 
     # TODO measure time difference for state and context saving
     def save_state_to_disk(self, filename):
@@ -387,7 +452,6 @@ def _build_llama(_Llama):
         ) -> Union[Iterator[Completion], Iterator[CompletionChunk]]:
 
             # T=0 -> llama_sample_token_greedy(ctx, candidates)
-
             completion_tokens: List[int] = []
             # Add blank space to start of prompt to match OG llama tokenizer
             prompt_tokens: List[int] = self.tokenize(prompt.encode("utf-8")) if prompt != "" else [self.token_bos()]
