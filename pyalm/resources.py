@@ -1,6 +1,43 @@
 import psutil
 import subprocess as sp
 import math
+import pynvml
+
+
+def get_gpu_usage():
+    try:
+        pynvml.nvmlInit()
+        count = pynvml.nvmlDeviceGetCount()
+        if count == 0:
+            return None
+
+        result = {"driver": pynvml.nvmlSystemGetDriverVersion(),
+                  "gpu_count": int(count)
+                  }
+        i = 0
+        gpuData = []
+        while i<count:
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+            gpuData.append({"device_num": i, "name": pynvml.nvmlDeviceGetName(handle), "total": round(float(mem.total)/1024**2, 2),
+                            "used": round(float(mem.used)/1024**2, 2),
+                            "free": round(float(mem.free)/1024**2, 2)})
+            i = i+1
+    except Exception as e:
+        result = {"driver": "No GPU!", "gpu_count": 0, "devices": []}
+
+    total = {"total":0, "used":0,"free":0}
+    for i in gpuData:
+        total["total"]+=i["total"]
+        total["used"]+=i["used"]
+        total["free"]+=i["free"]
+    total["total"] = round(total["total"],2)
+    total["used"] = round(total["used"],2)
+    total["free"] = round(total["free"],2)
+    return gpuData, total
+
+
 def get_resource_info():
     try:
         command= "nvidia-smi --query-gpu=memory.free,memory.total,pstate,compute_cap,utilization.gpu,count,gpu_name,driver_version --format=csv"

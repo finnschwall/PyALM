@@ -14,14 +14,11 @@ classifiers = [
 ]
 
 dependencies = [
-    "psutil~=5.9.5",
-#    "tiktoken~=0.5.1",
-#    "tqdm~=4.66.1",
+    "psutil",
+    "tqdm",
     "numpy",
-#    "openai",
     "pyyaml",
-#    "aleph_alpha_client",
-#    "llama-cpp-python",
+    "pynvml",
 ]
 [project.optional-dependencies]
 openai = [
@@ -30,7 +27,7 @@ openai = [
 ]
 aleph_alpha = ["aleph_alpha_client"]
 llama = ["llama-cpp-python"]
-full = ["tiktoken~=0.5.1",
+full = ["tiktoken",
      "openai","aleph_alpha_client","llama-cpp-python"]
 
 
