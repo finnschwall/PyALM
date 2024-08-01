@@ -47,8 +47,11 @@ class DataYAML(ABC):
         instance = cls.from_dict(data)
         return instance
 
+
 # glob_inv_scheme =  {"USER": ConversationRoles.ASSISTANT, "ASSISTANT": ConversationRoles.USER}
-glob_inv_scheme =  {ConversationRoles.USER: ConversationRoles.ASSISTANT, ConversationRoles.ASSISTANT: ConversationRoles.USER}
+glob_inv_scheme = {ConversationRoles.USER: ConversationRoles.ASSISTANT,
+                   ConversationRoles.ASSISTANT: ConversationRoles.USER}
+
 
 @dc.dataclass(kw_only=True)
 class ConversationTracker(DataYAML):
@@ -76,7 +79,7 @@ class ConversationTracker(DataYAML):
     def invert_roles(self, inversion_scheme=None):
         global glob_inv_scheme
         if inversion_scheme is None:
-            inversion_scheme = glob_inv_scheme#self.inversion_scheme
+            inversion_scheme = glob_inv_scheme  # self.inversion_scheme
         for i, x in enumerate(self.tracker):
             self.tracker[i]["role"] = inversion_scheme.get(self.tracker[i]["role"], self.tracker[i]["role"])
         if "system_message2" in self.data:
@@ -90,8 +93,12 @@ class ConversationTracker(DataYAML):
     def __setitem__(self, key, value):
         self.tracker[key] = value
 
-    def get_last_message(self, role, include_depth=False):
+    def get_last_message(self, role=None, include_depth=False):
         for i in range(len(self.tracker) - 1, -1, -1):
+            if not role:
+                if include_depth:
+                    return self.tracker[i], i
+                return self.tracker[i]
             if self.tracker[i]["role"] == role:
                 if include_depth:
                     return self.tracker[i], i
@@ -120,8 +127,28 @@ class ConversationTracker(DataYAML):
             ret.append(self.tracker[i])
         return ret
 
-    def add_entry(self, content=None, role=None, meta=None, code=None, return_value = None, feedback=None,
-                  sentiment=None, add_keys=None):
+    def pop_entry(self):
+        if len(self.tracker) == 0:
+            return []
+        if len(self.tracker) == 1:
+            return self.tracker.pop(1)
+        last_role = self.tracker[-1]["role"]
+
+        index = -1
+        inverted_role = self.inversion_scheme.get(last_role)
+        for i in range(len(self.tracker) - 1, -1, -1):
+            if self.tracker[i]["role"] == inverted_role:
+                index = i
+                break
+        if index == -1:
+            return self.tracker.pop()
+        ret = []
+        for i in range(len(self.tracker) - 1, index, -1):
+            ret.append(self.tracker.pop(i))
+        return ret
+
+    def add_entry(self, content=None, role=None, meta=None, code=None, return_value=None, feedback=None,
+                  sentiment=None,processing=None, add_keys=None):
         if not role and len(self.tracker) == 0:
             role = ConversationRoles.USER
         elif not role:
@@ -133,9 +160,8 @@ class ConversationTracker(DataYAML):
         del loc_dic["role"]
         self._add_entry(role, **loc_dic)
 
-
-    def _add_entry(self, role, content=None, meta=None, feedback=None, code=None, return_value = None,
-                   sentiment=None, add_keys=None):
+    def _add_entry(self, role, content=None, meta=None, feedback=None, code=None, return_value=None,
+                   sentiment=None, processing=None, add_keys=None):
         role = _get_enum_value(role, ConversationRoles)
 
         entry = {"role": role}
@@ -149,8 +175,11 @@ class ConversationTracker(DataYAML):
             entry["return_value"] = return_value
         if feedback:
             entry["feedback"] = feedback
+        if processing:
+            entry["processing"] = processing
         if add_keys:
             entry = entry | add_keys
+        entry["index"] = 0 if len(self.tracker) == 0 else self.tracker[-1]["index"] + 1
         self.tracker.append(entry)
         return entry
 

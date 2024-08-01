@@ -1,7 +1,9 @@
 <img src="https://cdn-icons-png.flaticon.com/512/10721/10721994.png" alt="drawing" width="75"/>
 <b>You are entering an active construction zone!</b>
 
-Most of it seems to work, but it isn't really tested
+# FINAL COMMIT
+After this commit history will be purged to allow for a restructure of the repository, to be more appropriate for a public release!
+
 
 <p align="center">
 <img src="icon.png" alt="drawing" width="250"/>

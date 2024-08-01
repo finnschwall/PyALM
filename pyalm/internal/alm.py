@@ -1,15 +1,14 @@
-import ast
+import os
 import re
 from timeit import default_timer as timer
 from typing import Type
 from warnings import warn
 import contextlib
 import io
-import dataclasses as dc  # import dataclass, asdict, field
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import rixaplugin
-from . import system_msg_templates
-from .state import *
+from pyalm.chat import system_msg_templates
+from pyalm.internal.state import *
 
 
 class FunctionFormat(enum.Enum):
@@ -25,6 +24,7 @@ def change_latex_delimiters(latex_str):
     modified_str = latex_str.replace("\\[", "$$").replace("\\]", "$$")
     modified_str = modified_str.replace("\\(", "$").replace("\\)", "$")
     return modified_str
+
 
 class ParseStatus(enum.Enum):
     """
@@ -110,17 +110,20 @@ class ALM:
         self.code_call_sys_msg = system_msg_templates.function_call_msg
         self.context_sys_msg = system_msg_templates.context_msg
         self.context_with_code_sys_msg = system_msg_templates.context_with_code_msg
-        self.system_msg_template = "[[CODE_CALL_SYSTEM_MSG]]\n[[CONTEXT_SYSTEM_MSG]]\n[[USR_SYSTEM_MSG]]"
+        self.system_msg_template = "SCENARIO SPECIFIC INSTRUCTIONS:\n[[USR_SYSTEM_MSG]]\n\n\n[[CODE_CALL_SYSTEM_MSG]]\n\n\n[[CONTEXT_SYSTEM_MSG]]"
 
         self.code_callback = rixaplugin.execute_code
         """
         Function that will be called to execute code
         """
+
         def _include_code_call_sys_msg(match, symbols, text=None):
-            if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols["LIST_OF_FUNCTIONS"] != "":
+            if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols[
+                "LIST_OF_FUNCTIONS"] != "":
                 return self.code_call_sys_msg
             else:
                 return ""
+
         def _include_context_sys_msg(match, symbols, text=None):
             if self.include_context_msg and self.symbols.get("CONTEXT") and self.symbols["CONTEXT"] != "":
                 if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols[
@@ -130,17 +133,16 @@ class ALM:
                     return self.context_sys_msg
             else:
                 return ""
+
         self._built_in_symbols = {
             "FUNCTION_START": lambda match, symbols, text=None: self.settings.function_sequence[0],
             "FUNCTION_END": lambda match, symbols, text=None: self.settings.function_sequence[1],
             "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
             "FUNCTION_CALL": lambda match, symbols, text=None: self.replace_symbols(
                 self.settings.function_integration_template, additional_symbols=symbols),
-        "CODE_CALL_SYSTEM_MSG" : _include_code_call_sys_msg,
-        "CONTEXT_SYSTEM_MSG" : _include_context_sys_msg,
-        "USR_SYSTEM_MSG":""}
-
-
+            "CODE_CALL_SYSTEM_MSG": _include_code_call_sys_msg,
+            "CONTEXT_SYSTEM_MSG": _include_context_sys_msg,
+            "USR_SYSTEM_MSG": ""}
 
         self.user_symbols = Symbols()
         """
@@ -153,8 +155,7 @@ class ALM:
 
         self.raw_generated_text = ""
 
-        self._finish_meta_template = {"function_call": {"found": False, "parse_status": ParseStatus.UNDEFINED},
-                                      "finish_reason": "Unknown", "timings": {}, }
+        self._finish_meta_template = {"finish_reason": "Unknown", "timings": {}, }
         self.finish_meta = dict(self._finish_meta_template)
 
         self.jupyter_gui = False
@@ -379,12 +380,12 @@ class ALM:
         else:
             self.conversation_history.reset_tracker()
 
-    def add_tracker_entry(self,*args,**kwargs):
+    def add_tracker_entry(self, *args, **kwargs):
         """
         Add a new entry to the tracker. More info is in
         https://github.com/finnschwall/PyALM/blob/main/format_specifications.md
         """
-        self.conversation_history.add_entry(*args,**kwargs)
+        self.conversation_history.add_entry(*args, **kwargs)
 
     def create_completion(self, text_obj=None, verbose=None, enable_function_calls=None, chat=True,
                           token_prob_delta=None, token_prob_abs=None, handle_functions=None, stop=None, **kwargs):
@@ -460,19 +461,19 @@ class ALM:
             self.finish_meta["total_finish_time"] = end - start
             return self.raw_generated_text
 
-        status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
+        # status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
 
-        if status != ParseStatus.NO_FUNC_SEQUENCE_FOUND:
-            self.finish_meta["function_call"]["found"] = True
-            self.finish_meta["function_call"]["sequence"] = seq
+        # if status != ParseStatus.NO_FUNC_SEQUENCE_FOUND:
+        #     self.finish_meta["function_call"]["found"] = True
+        #     self.finish_meta["function_call"]["sequence"] = seq
 
-        if status != ParseStatus.PARSED_EXECUTED_OK:
-            if chat:
-                self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT)
-            end = timer()
-            self.finish_meta["total_finish_time"] = end - start
-            return self.raw_generated_text
-        self.raw_generated_text = new_text + "\n"
+        # if status != ParseStatus.PARSED_EXECUTED_OK:
+        #     if chat:
+        #         self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT)
+        #     end = timer()
+        #     self.finish_meta["total_finish_time"] = end - start
+        #     return self.raw_generated_text
+        # self.raw_generated_text = new_text + "\n"
         try:
             stop.remove(self.settings.function_sequence[1])
         except:
@@ -488,7 +489,8 @@ class ALM:
         self.finish_meta["total_finish_time"] = end - start
         return self.raw_generated_text
 
-    def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg = None, code_calls=0):
+    def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg=None, code_calls=0,
+                                 chat_store_loc=None, username=None, temp=None):
 
         self.finish_meta = dict(self._finish_meta_template)
         self.raw_generated_text = ""
@@ -498,28 +500,33 @@ class ALM:
 
         self.user_symbols["LIST_OF_FUNCTIONS"] = ""
         self.user_symbols["CONTEXT"] = ""
+        self.user_symbols["USR_SYSTEM_MSG"] = "" if not system_msg else system_msg
 
         if func_list:
             self.user_symbols["LIST_OF_FUNCTIONS"] = func_list
 
         if context:
             self.user_symbols["CONTEXT"] = context
+
+        if username and chat_store_loc.get():
+            with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
+                f.write("-------\nCALLING MODEL\n-------\n")
+                f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-2000:])
         prompt_obj = self.build_prompt()
         self.prompt = prompt_obj
 
-        from pprint import pprint
-        # print(prompt_obj[0]["content"])
-        # pprint(prompt_obj, width=120)
-
         try:
-            print("CALLING MODEL")
             # print(self.build_prompt_as_str(use_build_prompt=True))
-            ret_text = self.create_native_completion(prompt_obj, )
-            print("RETURN FROM MODEL\n"+ret_text)
+            if temp:
+                ret_text = self.create_native_completion(prompt_obj, temp=temp)
+            else:
+                ret_text = self.create_native_completion(prompt_obj)
+            if username and chat_store_loc.get():
+                with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
+                    f.write("\n---\nRETURN FROM MODEL\n" + ret_text + "\n")
         except Exception as e:
             self.pop_entry()
             raise e
-
 
         start_seq = self.settings.function_sequence[0]
         end_seq = self.settings.function_sequence[1]
@@ -527,98 +534,68 @@ class ALM:
         matches = [(m.group(1), m.span()) for m in re.finditer(pattern, ret_text, re.DOTALL)]
 
         if len(matches) == 0:
-            ret_text_copy = ret_text+ end_seq
+            ret_text_copy = ret_text + end_seq
             pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
             matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, ret_text_copy, re.DOTALL)]
             if len(matches) == 0:
                 self.conversation_history.add_entry(change_latex_delimiters(ret_text), ConversationRoles.ASSISTANT)
                 return self.conversation_history
         func_seq = matches[0][0]
-        code_calls+=1
+        code_calls += 1
         if code_calls >= 3:
-            self.conversation_history.add_entry("Sorry but something has gone wrong when trying to fetch info from the server.", role = ConversationRoles.ASSISTANT
-            )
+            self.conversation_history.add_entry(
+                "Sorry but something has gone wrong when trying to fetch info from the server.",
+                role=ConversationRoles.ASSISTANT
+                )
             return self.conversation_history
         try:
             if "#TO_USER" in func_seq:
-                func_seq_truncated = func_seq.strip()#.replace("#TO_USER", "").strip()
+                func_seq_truncated = func_seq.strip()
                 return_from_code = self.code_callback(func_seq_truncated)
-                kwarg_dic = {"code":func_seq_truncated, "return_value":return_from_code}
-                trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0],"").replace(self.settings.function_sequence[1],"").strip()
+                kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code}
+                trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
+                    self.settings.function_sequence[1], "").strip()
                 if trunced_text != "":
-                    self.conversation_history.add_entry(change_latex_delimiters(trunced_text), ConversationRoles.ASSISTANT, **kwarg_dic)
+                    self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
+                                                        ConversationRoles.ASSISTANT, **kwarg_dic)
                 else:
-                    self.conversation_history.add_entry(ConversationRoles.ASSISTANT, **kwarg_dic)
+                    self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
                 return self.conversation_history
             else:
-                return_from_code = self.code_callback.execute_code(func_seq.strip())
+                return_from_code = self.code_callback(func_seq.strip())
                 self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq,
                                                     return_value=return_from_code)
-                self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls)
+                self.create_completion_plugin(None, context=context, func_list=func_list,
+                                              code_calls=code_calls, username=username, chat_store_loc=chat_store_loc)
 
 
         except Exception as e:
-            self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq,
-                                                return_value="EXECUTION FAILED. REASON: " + str(e))
+            print("EXCEPTION OCCURED")
+            import traceback
+            tb = traceback.format_exc()
+            print("CODE:", func_seq)
+            print(tb)
+            import rixaplugin.sync_api as api
+            api.display(html="<code>" + tb.replace("\n", "<br>") + "</code>")
+            if "#TO_USER" in func_seq:
+                kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
+                trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
+                    self.settings.function_sequence[1], "").strip()
+                if trunced_text != "":
+                    self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
+                                                        ConversationRoles.ASSISTANT, **kwarg_dic)
+                    api.display_in_chat(text=change_latex_delimiters(trunced_text), role="partial")
+                else:
+                    api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                    self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
+            else:
+                api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq.strip(),
+                                                    return_value="EXECUTION FAILED. REASON: " + str(e))
             self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
         return self.conversation_history
-
-
-
-    def _extract_and_handle_functions(self, text, call_functions=True):
-        """
-        Extract function sequences from text and parse and potentially execute them
-
-        :param text:
-        :param call_functions: Call or just collect calls and return
-        :return:
-        """
-        start_seq = self.settings.function_sequence[0]
-        end_seq = self.settings.function_sequence[1]
-        pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
-        matches = [(m.group(1), m.span()) for m in re.finditer(pattern, text, re.DOTALL)]
-
-        if len(matches) == 0:
-            text += end_seq
-            pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
-            matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, text, re.DOTALL)]
-
-            if len(matches) == 0:
-                self.finish_meta["parse_status"] = ParseStatus.NO_FUNC_SEQUENCE_FOUND
-                return ParseStatus.NO_FUNC_SEQUENCE_FOUND, None, None
-        func_seq = matches[0][0].strip()
-        try:
-            ast_obj = ast.parse(func_seq)
-        except Exception as e:
-            if call_functions:
-                raise Exception("Models doing stuff wrong is not yet correctly handled")
-            self.finish_meta["parse_status"] = ParseStatus.UNPARSEABLE_FUNC_FOUND
-            return ParseStatus.UNPARSEABLE_FUNC_FOUND, func_seq, e
-
-        if not call_functions:
-            visitor = python_parsing.CodeVisitor(collect=True)
-            visitor.visit(ast_obj)
-            self.finish_meta["parse_status"] = ParseStatus.PARSED_DICT_RETURN
-            return ParseStatus.PARSED_DICT_RETURN, func_seq, visitor.collection
-
-        visitor = python_parsing.CodeVisitor(
-            {i: self.available_functions[i]["callback"] for i in self.available_functions})
-        visitor.visit(ast_obj)
-        if "__call_res__" in visitor.variables:
-            ret_val = visitor.variables["__call_res__"]
-        else:
-            ret_val = "NO RETURN VALUE"
-
-        loc = text.find(func_seq)
-        loc -= len(end_seq)
-        # new_assistant_text = text[:loc] + "[[ORIGINAL_CALL]]"+
-        self.add_tracker_entry(text[:loc] + "[[FUNCTION_CALL]]", ConversationRoles.ASSISTANT,
-                               function_calls={"original_call": func_seq, "return": ret_val})
-        self.finish_meta["parse_status"] = ParseStatus.PARSED_EXECUTED_OK
-
-        return ParseStatus.PARSED_EXECUTED_OK, func_seq, text[:loc]
 
     # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
     # but that would break closed source compatability
@@ -684,8 +661,6 @@ class ALM:
             except Exception as e:
                 self.pop_entry()
                 raise e
-        # for i in token_generator:
-        #     print(i)
 
         if not chat and not text_obj:
             raise Exception("No prompt given!")
@@ -798,7 +773,7 @@ class ALM:
         self.finish_meta["total_finish_time"] = end - start
 
     def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False,
-                            include_system_msg = True, use_build_prompt=False):
+                            include_system_msg=True, use_build_prompt=False):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
@@ -812,9 +787,11 @@ class ALM:
             prompt_obj = self.build_prompt()
             prompt_str = ""
             for i in prompt_obj:
+                if not include_system_msg:
+                    if i["role"] == "system":
+                        continue
                 prompt_str += f"{i['role']}:{i['content']}\n"
             return prompt_str
-
 
         def rep_sym(str, entry=None):
             return str if raw else self.replace_symbols(str, entry)

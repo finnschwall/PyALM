@@ -1,8 +1,7 @@
-from .alm import ALM
+from pyalm.internal.alm import ALM
 import vertexai
-from vertexai.preview.generative_models import GenerativeModel, Part
+from vertexai.preview.generative_models import GenerativeModel
 import vertexai.preview.generative_models as generative_models
-import os
 from timeit import default_timer as timer
 
 

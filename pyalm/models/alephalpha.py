@@ -1,8 +1,6 @@
-from .alm import ALM
-import time
+from pyalm.internal.alm import ALM
 import os
 from aleph_alpha_client import Client, CompletionRequest, Prompt, SummarizationRequest, Document, Image
-from functools import partial
 import requests
 import json
 from timeit import default_timer as timer

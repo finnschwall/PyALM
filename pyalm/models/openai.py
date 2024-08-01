@@ -1,11 +1,7 @@
-from . import ConversationRoles
-from .alm import ALM
+from pyalm.internal.alm import ALM
 from openai import OpenAI as _OpenAI, AzureOpenAI as _AzureOpenAI
-import time
 import os
 import tiktoken
-from functools import partial
-from warnings import warn
 from timeit import default_timer as timer
 
 
@@ -126,22 +122,21 @@ class OpenAI(ALM):
         tok_in = response.usage.prompt_tokens
         tok_gen = response.usage.completion_tokens
         tok_total = response.usage.total_tokens
-        print(f"Tokens: {tok_in}, {tok_gen}, {tok_total}")
 
         self.finish_meta["tokens"] = {"prompt_tokens": tok_in, "generated_tokens": tok_gen, "total_tokens": tok_total}
         self.total_tokens += tok_total
-        self.finish_meta["timings"] = {"total_time": round(end - start,3)}
-        self.finish_meta["t_per_s"] = {"token_total_per_s": (tok_total) / (end - start)}
+        self.finish_meta["timings"] = {"total_time": round(end - start,2)}
+        self.finish_meta["t_per_s"] = {"token_total_per_s": round((tok_total) / (end - start),2)}
 
-        try:
-            cost_in = OpenAI.pricing[self.model]["input"] * tok_in / OpenAI.pricing_meta["token_unit"]
-            cost_out = OpenAI.pricing[self.model]["output"] * tok_gen / OpenAI.pricing_meta["token_unit"]
-            self.finish_meta["cost"] = {"input": round(cost_in, 3), "output": round(cost_out, 5),
-                                        "total": round(cost_out + cost_in, 5),
-                                        "total_cent": round((cost_out + cost_in) * 100, 3),
-                                        "unit": OpenAI.pricing_meta["currency"]}
-        except:
-            pass
+        # try:
+        #     cost_in = OpenAI.pricing[self.model]["input"] * tok_in / OpenAI.pricing_meta["token_unit"]
+        #     cost_out = OpenAI.pricing[self.model]["output"] * tok_gen / OpenAI.pricing_meta["token_unit"]
+        #     self.finish_meta["cost"] = {"input": round(cost_in, 3), "output": round(cost_out, 5),
+        #                                 "total": round(cost_out + cost_in, 5),
+        #                                 "total_cent": round((cost_out + cost_in) * 100, 3),
+        #                                 "unit": OpenAI.pricing_meta["currency"]}
+        # except:
+        #     pass
 
         if keep_dict:
             return response
@@ -183,8 +178,11 @@ class OpenAI(ALM):
         prompt = []
 
         if system_msg and system_msg != "":
-            prompt.insert(0, {"role": self.symbols["SYSTEM"], "content":
-                self.replace_symbols(system_msg)})
+            system_msg = self.replace_symbols(system_msg)
+            if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
+                system_msg += "\n\nGATHERED CONTEXT/KNOWLEDGE:\n" + self.symbols["CONTEXT"]
+            prompt.insert(0, {"role": self.symbols["SYSTEM"], "content": system_msg
+                })
 
 
         for i in conv_history:
@@ -209,8 +207,8 @@ class OpenAI(ALM):
             #     prompt.append({"role": self.symbols[str(i["role"])], "content":code_str})
             # else:
             #     prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
-        if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
-            last_usr_entry, depth = self.conversation_history.get_last_message(ConversationRoles.USER, True)
-            if depth == 0 and last_usr_entry:
-                prompt[-1]["content"] = "#CONTEXT_START\n"+ self.symbols["CONTEXT"]+"\n#CONTEXT_END\n" + prompt[-1]["content"]
+        # if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
+        #     last_usr_entry, depth = self.conversation_history.get_last_message(ConversationRoles.USER, True)
+        #     if depth == 0 and last_usr_entry:
+        #         prompt[-1]["content"] = "#CONTEXT_START\n"+ self.symbols["CONTEXT"]+"\n#CONTEXT_END\n" + prompt[-1]["content"]
         return prompt

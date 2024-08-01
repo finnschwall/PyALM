@@ -1,32 +1,37 @@
 import psutil
 import subprocess as sp
 import math
-import pynvml
+
+
 
 
 def get_gpu_usage():
+    import pynvml
     try:
         pynvml.nvmlInit()
-        count = pynvml.nvmlDeviceGetCount()
-        if count == 0:
-            return None
-
-        result = {"driver": pynvml.nvmlSystemGetDriverVersion(),
-                  "gpu_count": int(count)
-                  }
-        i = 0
-        gpuData = []
-        while i<count:
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
-
-            gpuData.append({"device_num": i, "name": pynvml.nvmlDeviceGetName(handle), "total": round(float(mem.total)/1024**2, 2),
-                            "used": round(float(mem.used)/1024**2, 2),
-                            "free": round(float(mem.free)/1024**2, 2)})
-            i = i+1
-    except Exception as e:
+        pynvm_available = True
+    except:
+        pynvm_available = False
+    if pynvm_available:
         result = {"driver": "No GPU!", "gpu_count": 0, "devices": []}
+        return result, {}
+    count = pynvml.nvmlDeviceGetCount()
+    if count == 0:
+        return None
 
+    result = {"driver": pynvml.nvmlSystemGetDriverVersion(),
+              "gpu_count": int(count)
+              }
+    i = 0
+    gpuData = []
+    while i<count:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+        gpuData.append({"device_num": i, "name": pynvml.nvmlDeviceGetName(handle), "total": round(float(mem.total)/1024**2, 2),
+                        "used": round(float(mem.used)/1024**2, 2),
+                        "free": round(float(mem.free)/1024**2, 2)})
+        i = i+1
     total = {"total":0, "used":0,"free":0}
     for i in gpuData:
         total["total"]+=i["total"]

@@ -1,33 +1,21 @@
-import os
-import numpy as np
-import timeit
 import ctypes
 import warnings
 import tqdm
 
 warnings.filterwarnings("ignore", category=tqdm.TqdmExperimentalWarning)
-import psutil
 from tqdm.autonotebook import tqdm
 from ctypes import POINTER, c_int, c_void_p, cast
 from typing import (
     List,
     Optional,
     Union,
-    Generator,
-    Sequence,
     Iterator,
-    Deque,
-    Tuple,
-    Callable,
     Any
 )
-import warnings
-import numpy as np
-import numpy.typing as npt
 import pickle
 from functools import partial
-from .alm import ALM
-from .resources import *
+from pyalm.internal.alm import ALM
+from pyalm.internal.resources import *
 import contextlib
 import io
 
@@ -99,7 +87,7 @@ _log_callback_pointer = llama_log_callback(_log_callback)
 
 class LLaMa(ALM):
 
-    def __init__(self, model_path, n_ctx=2048, verbose=1, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
+    def __init__(self, model_path, n_ctx=2048, verbose=0, n_threads=-1, n_gpu_layers=-1, quantize_format="auto",
                  is_70b=False, disable_log_hook=False, disable_resource_check= False, use_gguf_chat_template=False, **kwargs):
         global _max_level, progress_bar, _exp_max_char, _counter, _meta_dic
         super().__init__(model_path, verbose=verbose)
@@ -389,7 +377,7 @@ class LLaMa(ALM):
 
 
 def _build_llama(_Llama):
-    from llama_cpp import StoppingCriteria, StoppingCriteriaList, LogitsProcessorList, LogitsProcessor, Completion, \
+    from llama_cpp import StoppingCriteriaList, LogitsProcessorList, Completion, \
         CompletionChunk
     class LlamaBase(_Llama):
         def __init__(self, *args, **kwargs):
