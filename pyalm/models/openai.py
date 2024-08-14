@@ -192,7 +192,14 @@ class OpenAI(ALM):
             if "code" in i and i["code"]:
                 code_str = f"\n{self.settings.function_sequence[0]}\n"+i["code"]+f"\n{self.settings.function_sequence[1]}"
                 if "return_value" in i and i["return_value"]:
-                    code_str += "\nRETURN:\n"+i["return_value"]
+                    code_str += "\nRETURN:\n"#+i["return_value"]
+                    if isinstance(i["return_value"], str):
+                        code_str += i["return_value"]
+                    else:
+                        try:
+                            code_str += str(i["return_value"])
+                        except:
+                            code_str += "RETURN VALUE OF FUNCTION IS NOT CONVERTIBLE TO STRING!"
                 else:
                     code_str += "\nRETURN:\nNone(OK)"
                 prompt_content += code_str

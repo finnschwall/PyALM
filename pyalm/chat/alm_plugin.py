@@ -92,6 +92,10 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
 
     enable_knowledge_retrieval = enable_knowledge_retrieval_var.get() & enable_knowledge_retrieval
 
+    queries = [last_usr_msg["content"]]
+    info_score = 4
+    use_multiplexing = False
+
     if use_multiplexing:
         kwargs = {"conversation_history": conversation_tracker_yaml,
                   "knowledge_retrieval_domain": knowledge_retrieval_domain,
@@ -104,34 +108,47 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             info_score = preprocessor_json["info_score"]
             queries = preprocessor_json["queries"]
             included_functions = preprocessor_json["included_functions"]
+            print("enable_function_calling", enable_function_calling)
+            print("enable_knowledge_retrieval", enable_knowledge_retrieval)
+            print("info_score", info_score)
+            print("queries", queries)
+            print("included_functions", included_functions)
+
 
     context = None
     context_str = None
     if enable_knowledge_retrieval is True:
         try:
-            future = await async_execute("query_db", args=[last_usr_msg["content"], 4], kwargs={"min_score": 0.5,
-                                                                                                "max_chars": 5000},
-                                         return_future=True)
-            context, scores = await future
             context_str = ""
-            for i in context:
-                context_str += f"ID: {i['index']}\nDOC TITLE: {i['document_title']}\nHEADER: {i['header']}\n" \
-                               f"CONTENT: {i['content']}\n"
+            num_requests = len(queries)
+            maximum_entries = info_score
+            base_value = maximum_entries // num_requests
+            remainder = maximum_entries % num_requests
+
+            query_sizes = [base_value] * num_requests
+
+            for i in range(remainder):
+                query_sizes[i] += 1
+
+            for i,query in enumerate(queries):
+                future = await async_execute("query_db", args=[query, query_sizes[i]], kwargs={"min_score": 0.5,
+                                                                                                    "max_chars": 5000},
+                                             return_future=True)
+                context, scores = await future
+                for i in context:
+                    context_str += f"ID: {i['index']}\nDOC TITLE: {i['document_title']}\nHEADER: {i['header']}\n" \
+                                   f"CONTENT: {i['content']}\n"
         except Exception as e:
-            await api.show_message("Knowledge retrieval system faulty. No context available.")
+            await api.show_message("Knowledge retrieval system faulty. No context available.", "error")
             llm_logger.exception(f"Could not retrieve context from knowledge base")
-        # llm.include_context_msg = True
     else:
         context_str = None
-        # llm.include_context_msg = False
 
     if enable_function_calling:
+        print(user_api.scope)
         func_list = _memory.get_functions_as_str(user_api.scope, short=False)
-        # llm.include_function_msg = True
     else:
         func_list = None
-        # llm.include_function_msg = False
-    print(enable_function_calling,func_list)
     kwargs = {"conv_tracker": tracker, "context": context_str, "func_list": func_list, "system_msg": system_msg,
               "username": username,
               "chat_store_loc": chat_store_loc,

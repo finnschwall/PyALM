@@ -1,3 +1,5 @@
+import datetime
+
 import os
 import re
 from timeit import default_timer as timer
@@ -10,6 +12,8 @@ import rixaplugin
 from pyalm.chat import system_msg_templates
 from pyalm.internal.state import *
 
+import logging
+alm_logger = logging.getLogger("rixa.alm")
 
 class FunctionFormat(enum.Enum):
     PYDOC = "PYDOC"
@@ -142,7 +146,8 @@ class ALM:
                 self.settings.function_integration_template, additional_symbols=symbols),
             "CODE_CALL_SYSTEM_MSG": _include_code_call_sys_msg,
             "CONTEXT_SYSTEM_MSG": _include_context_sys_msg,
-            "USR_SYSTEM_MSG": ""}
+            "USR_SYSTEM_MSG": "",
+        "DATE": lambda match, symbols, text=None: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),}
 
         self.user_symbols = Symbols()
         """
@@ -434,6 +439,7 @@ class ALM:
             if text_obj:
                 self.add_tracker_entry(text_obj, ConversationRoles.USER)
             prompt_obj = self.build_prompt()
+            # print(self.build_prompt_as_str(use_build_prompt=True))
             self.prompt = prompt_obj
             if self.settings.prompt_obj_is_str and self.settings.include_conv_id_as_stop:
                 stop.append(self.symbols["USER"])
@@ -512,6 +518,7 @@ class ALM:
             with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
                 f.write("-------\nCALLING MODEL\n-------\n")
                 f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-2000:])
+                # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
         prompt_obj = self.build_prompt()
         self.prompt = prompt_obj
 
@@ -570,13 +577,14 @@ class ALM:
 
 
         except Exception as e:
-            print("EXCEPTION OCCURED")
+            # print("EXCEPTION OCCURED")
             import traceback
             tb = traceback.format_exc()
-            print("CODE:", func_seq)
-            print(tb)
+            alm_logger.debug(f"Exception occurred in code:\n{func_seq}\n{tb}")
+            # print("CODE:", func_seq)
+            # print(tb)
             import rixaplugin.sync_api as api
-            api.display(html="<code>" + tb.replace("\n", "<br>") + "</code>")
+            api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
             if "#TO_USER" in func_seq:
                 kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
                 trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
