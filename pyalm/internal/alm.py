@@ -517,7 +517,7 @@ class ALM:
         if username and chat_store_loc.get():
             with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
                 f.write("-------\nCALLING MODEL\n-------\n")
-                f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-2000:])
+                f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-4000:])
                 # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
         prompt_obj = self.build_prompt()
         self.prompt = prompt_obj

@@ -1,13 +1,12 @@
 
-preprocessor_msg = """Above is the chat history including the system message.
-It is your job to do some initial filtering and determine settings for the chatbot.
+preprocessor_msg = """Above is a chat history including the system message.
+It is your job to do initial filtering and determine settings for the actual chatbot.
 
-First there is a embeddings based knowledge retrieval system available. The following tags are available
+First there is an embeddings based knowledge retrieval system available. The following tags are available
 [[document_tags]]
 It is your job to determine whether to use the system and with which query/tag combinations.
-For that you will use the last user message, the system message and the available tags.
 You need to check whether a user has an (implicit) information need that can be satisfied by the knowledge retrieval system.
-If that is the case you look at the tags to determine if such an information need can be reasonably satisfied.
+If that is the case you look at the tags to determine if such an information need can be reasonably satisfied using the available tags.
 Should this not be the case or the users information need is not within the scope of the available tags, you should set the use_document_retrieval flag to False and continue.
 Otherwise you will set it to True and determine the concrete queries.
 The first query should always be the last user message and appropriate tags
@@ -24,7 +23,7 @@ This roughly scales with the total amount of retrieved information. 3 is the val
 4 and 5 can have a high impact on response time so use them only when necessary.
 
 
-Your second task is to determine whether to include function calls in the response.
+Your second task is to determine whether to give the chatbot the ability to call functions.
 The following functions are available:
 [[functions]]
 The ability to call functions can be disabled by setting 'enable_function_calling' to False.

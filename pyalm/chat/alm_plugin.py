@@ -94,8 +94,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
 
     queries = [last_usr_msg["content"]]
     info_score = 4
-    use_multiplexing = False
-
+    included_functions = None
     if use_multiplexing:
         kwargs = {"conversation_history": conversation_tracker_yaml,
                   "knowledge_retrieval_domain": knowledge_retrieval_domain,
@@ -108,11 +107,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             info_score = preprocessor_json["info_score"]
             queries = preprocessor_json["queries"]
             included_functions = preprocessor_json["included_functions"]
-            print("enable_function_calling", enable_function_calling)
-            print("enable_knowledge_retrieval", enable_knowledge_retrieval)
-            print("info_score", info_score)
-            print("queries", queries)
-            print("included_functions", included_functions)
+            # print("------")
+            # print("enable_function_calling", enable_function_calling)
+            # print("enable_knowledge_retrieval", enable_knowledge_retrieval)
+            # print("info_score", info_score)
+            # print("queries", queries)
+            # print("included_functions", included_functions)
 
 
     context = None
@@ -131,7 +131,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 query_sizes[i] += 1
 
             for i,query in enumerate(queries):
-                future = await async_execute("query_db", args=[query, query_sizes[i]], kwargs={"min_score": 0.5,
+                future = await async_execute("query_db", args=[query["query"], query_sizes[i]], kwargs={"min_score": 0.5,
                                                                                                     "max_chars": 5000},
                                              return_future=True)
                 context, scores = await future
@@ -145,7 +145,8 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         context_str = None
 
     if enable_function_calling:
-        print(user_api.scope)
+        if included_functions:
+            user_api.scope["included_functions"] = included_functions
         func_list = _memory.get_functions_as_str(user_api.scope, short=False)
     else:
         func_list = None
@@ -218,8 +219,6 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         kwargs = {"conversation_history": tracker.to_yaml(), "to_english": False}
         future = await async_execute("translate_last_message", "llm_server", kwargs=kwargs, return_future=True)
         translated_msg = await future
-        print("ORIGINAL", merged_tracker_entry["content"])
-        print("TRANSLATED", translated_msg)
         tracker[-1]["translated_content"] = translated_msg
 
 
