@@ -63,6 +63,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     :param conversation_tracker_yaml: The conversation tracker in yaml format
     :param available_functions: A list of available functions
     """
+    start_time = time.time()
     user_api = internal_api.get_api()
     # api.display_in_chat(text="Starting preprocessing...", role="partial")
     # if username and chat_store_loc.get():
@@ -107,12 +108,6 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             info_score = preprocessor_json["info_score"]
             queries = preprocessor_json["queries"]
             included_functions = preprocessor_json["included_functions"]
-            # print("------")
-            # print("enable_function_calling", enable_function_calling)
-            # print("enable_knowledge_retrieval", enable_knowledge_retrieval)
-            # print("info_score", info_score)
-            # print("queries", queries)
-            # print("included_functions", included_functions)
 
 
     context = None
@@ -131,7 +126,8 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 query_sizes[i] += 1
 
             for i,query in enumerate(queries):
-                future = await async_execute("query_db", args=[query["query"], query_sizes[i]], kwargs={"min_score": 0.5,
+                cur_query = query if not use_multiplexing else query["query"]
+                future = await async_execute("query_db", args=[cur_query, query_sizes[i]], kwargs={"min_score": 0.5,
                                                                                                     "max_chars": 5000},
                                              return_future=True)
                 context, scores = await future
@@ -155,7 +151,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
               "chat_store_loc": chat_store_loc,
               "temp": 0}
     future = await async_execute("create_completion_plugin", "llm_server", kwargs=kwargs, return_future=True)
-    tracker = await future
+    tracker, metadata = await future
     assistant_msgs = tracker.pop_entry()
 
     all_citations = []
@@ -211,6 +207,24 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     merged_tracker_entry["index"] = convo_idx
     # merged_tracker_entry["metadata"] = llm.finish_meta
     # merged_tracker_entry["processing"] = preprocessor_json
+    if use_multiplexing:
+        multiplexing_meta_dict = {"enable_function_calling": enable_function_calling,
+                                    "use_document_retrieval": enable_knowledge_retrieval,
+                                    "included_functions": included_functions}
+        if queries:
+            multiplexing_meta_dict["queries"] = queries
+            multiplexing_meta_dict["info_score"] = info_score
+
+        metadata.update(multiplexing_meta_dict)
+        # metadata["total_tokens"] = metadata["tokens"]["total_tokens"]
+        # to_pop = ["finish_reason", "timings", "total_finish_time","tokens","t_per_s"]
+        # for key in to_pop:
+        #     metadata.pop(key, None)
+        finished_time = time.time()
+        metadata["total_time"] = round(finished_time - start_time, 3)
+        print(metadata)
+        merged_tracker_entry["metadata"] = metadata
+
     if translation_val == "deepl":
         merged_tracker_entry["translated_content"] = await translate_message(merged_tracker_entry["content"],
                                                                              target_lang="DE")

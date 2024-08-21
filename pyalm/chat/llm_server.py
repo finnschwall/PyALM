@@ -29,7 +29,9 @@ def get_total_tokens():
 
 @plugfunc()
 def create_completion_plugin(*args, **kwargs):
-    return worker_context.llm.create_completion_plugin(*args, **kwargs)
+    response, metadata =worker_context.llm.create_completion_plugin(*args, **kwargs)
+    # print(worker_context.llm.finish_meta)
+    return response, metadata
 
 @plugfunc()
 def translate_last_message(conversation_history, to_english=True):

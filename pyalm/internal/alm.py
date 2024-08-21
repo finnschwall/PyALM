@@ -496,9 +496,11 @@ class ALM:
         return self.raw_generated_text
 
     def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg=None, code_calls=0,
-                                 chat_store_loc=None, username=None, temp=None):
-
+                                 chat_store_loc=None, username=None, temp=None, metadata=None):
+        import rixaplugin.sync_api as api
         self.finish_meta = dict(self._finish_meta_template)
+        if not metadata:
+            metadata = {"total_tokens":0}
         self.raw_generated_text = ""
         start = timer()
         if conv_tracker:
@@ -534,6 +536,7 @@ class ALM:
         except Exception as e:
             self.pop_entry()
             raise e
+        metadata["total_tokens"] += self.finish_meta["tokens"]["total_tokens"]
 
         start_seq = self.settings.function_sequence[0]
         end_seq = self.settings.function_sequence[1]
@@ -546,7 +549,7 @@ class ALM:
             matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, ret_text_copy, re.DOTALL)]
             if len(matches) == 0:
                 self.conversation_history.add_entry(change_latex_delimiters(ret_text), ConversationRoles.ASSISTANT)
-                return self.conversation_history
+                return self.conversation_history, metadata
         func_seq = matches[0][0]
         code_calls += 1
         if code_calls >= 3:
@@ -554,36 +557,32 @@ class ALM:
                 "Sorry but something has gone wrong when trying to fetch info from the server.",
                 role=ConversationRoles.ASSISTANT
                 )
-            return self.conversation_history
+            return self.conversation_history, metadata
         try:
-            if "#TO_USER" in func_seq:
-                func_seq_truncated = func_seq.strip()
-                return_from_code = self.code_callback(func_seq_truncated)
-                kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code}
-                trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
-                    self.settings.function_sequence[1], "").strip()
-                if trunced_text != "":
-                    self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
-                                                        ConversationRoles.ASSISTANT, **kwarg_dic)
-                else:
-                    self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
-                return self.conversation_history
+            func_seq_truncated = func_seq.strip()
+            return_from_code = self.code_callback(func_seq_truncated)
+            kwarg_dic = {"code": func_seq_truncated, "return_value": str(return_from_code)[-1500:]}
+            trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
+                self.settings.function_sequence[1], "").strip()
+            if trunced_text != "":
+                self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
+                                                    ConversationRoles.ASSISTANT, **kwarg_dic)
             else:
-                return_from_code = self.code_callback(func_seq.strip())
-                self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq,
-                                                    return_value=return_from_code)
+                self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
+            if "#TO_USER" in func_seq:
+                return self.conversation_history, metadata
+            else:
+                if trunced_text != "":
+                    api.display_in_chat(text=trunced_text, role="partial")
                 self.create_completion_plugin(None, context=context, func_list=func_list,
-                                              code_calls=code_calls, username=username, chat_store_loc=chat_store_loc)
+                                              code_calls=code_calls, username=username, chat_store_loc=chat_store_loc, metadata=metadata)
 
 
         except Exception as e:
-            # print("EXCEPTION OCCURED")
             import traceback
             tb = traceback.format_exc()
-            alm_logger.debug(f"Exception occurred in code:\n{func_seq}\n{tb}")
-            # print("CODE:", func_seq)
-            # print(tb)
-            import rixaplugin.sync_api as api
+            alm_logger.exception(f"Exception occurred in code:\n{func_seq}\n{tb}")
+
             api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
             if "#TO_USER" in func_seq:
                 kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
@@ -600,10 +599,10 @@ class ALM:
                 api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
                 self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq.strip(),
                                                     return_value="EXECUTION FAILED. REASON: " + str(e))
-            self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls)
+            self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls, metadata=metadata)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start
-        return self.conversation_history
+        return self.conversation_history, metadata
 
     # this could be improved by using raw token numbers. Then comparison to token number would be possible. would remedy whitespace issue
     # but that would break closed source compatability
