@@ -62,4 +62,4 @@ def get_preprocessing_json(conversation_history, knowledge_retrieval_domain, sys
         # api.display_in_chat(text="An unrecoverable error has occurred. You can try again after reloading the page", role="partial")
         return None
     api.display_in_chat(text="Preprocessing done. Starting response generation...", role="partial")
-    return preprocessor_json
+    return preprocessor_json, worker_context.llm.finish_meta

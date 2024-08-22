@@ -96,12 +96,14 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     queries = [last_usr_msg["content"]]
     info_score = 4
     included_functions = None
+    preprocessing_tokens = None
     if use_multiplexing:
         kwargs = {"conversation_history": conversation_tracker_yaml,
                   "knowledge_retrieval_domain": knowledge_retrieval_domain,
                   "system_msg": system_msg}
         future = await async_execute("get_preprocessing_json", "llm_server", kwargs=kwargs, return_future=True)
-        preprocessor_json = await future
+        preprocessor_json, metadata = await future
+        preprocessing_tokens = metadata["tokens"]["total_tokens"]
         if preprocessor_json is not None:
             enable_function_calling = preprocessor_json["enable_function_calling"]
             enable_knowledge_retrieval = preprocessor_json["use_document_retrieval"]
@@ -214,16 +216,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         if queries:
             multiplexing_meta_dict["queries"] = queries
             multiplexing_meta_dict["info_score"] = info_score
-
+        multiplexing_meta_dict["preprocessing_tokens"] = preprocessing_tokens
+        metadata["total_tokens"] += preprocessing_tokens
         metadata.update(multiplexing_meta_dict)
-        # metadata["total_tokens"] = metadata["tokens"]["total_tokens"]
-        # to_pop = ["finish_reason", "timings", "total_finish_time","tokens","t_per_s"]
-        # for key in to_pop:
-        #     metadata.pop(key, None)
-        finished_time = time.time()
-        metadata["total_time"] = round(finished_time - start_time, 3)
-        print(metadata)
-        merged_tracker_entry["metadata"] = metadata
+    finished_time = time.time()
+    metadata["total_time"] = round(finished_time - start_time, 3)
+    merged_tracker_entry["metadata"] = metadata
 
     if translation_val == "deepl":
         merged_tracker_entry["translated_content"] = await translate_message(merged_tracker_entry["content"],
