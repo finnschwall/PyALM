@@ -27,8 +27,6 @@ class OpenAI(ALM):
         :param api_version: Azure API version
         """
         super().__init__(model_path_or_name, verbose=verbose)
-
-
         conv = {"gpt3": "gpt-3.5-turbo", "gpt-3": "gpt-3.5-turbo", "chatgpt": "gpt-3.5-turbo", "gpt4": "gpt-4",
                 "gpt-16k": "gpt-3.5-turbo-16k"}
         self.model = conv.get(model_path_or_name, model_path_or_name)

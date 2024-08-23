@@ -11,6 +11,7 @@ from . import system_msg_templates
 import logging
 import rixaplugin.sync_api as api
 openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
+azure_endpoint = var.PluginVariable("AZURE_ENDPOINT", str, readable=var.Scope.LOCAL, default=None)
 llm_logger = logging.getLogger("rixa.llm_server")
 @worker_init()
 def worker_init():
@@ -19,7 +20,7 @@ def worker_init():
 
     #gpt-4o-2024-05-13
     #gpt-4-32k-0613
-    llm = OpenAI("gpt-4o-2024-05-13", openai_key.get())
+    llm = OpenAI("gpt-4o-2024-05-13", openai_key.get(), azure_endpoint=azure_endpoint.get())
     worker_context.llm = llm
 
 
