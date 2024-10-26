@@ -14,7 +14,7 @@ Native OpenAI function calls are currently not supported
 
 ## Documentation
 ```{eval-rst}  
-.. automodule:: pyalm.openai
+.. automodule:: pyalm.models.openai
    :members:
    :undoc-members:
 ```

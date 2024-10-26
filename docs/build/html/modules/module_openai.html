@@ -46,20 +46,20 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 <code class="docutils literal notranslate"><span class="pre">OpenAI.pricing_meta</span></code> to get the rates.</p>
 <p>Native OpenAI function calls are currently not supported</p>
 </section>
-<section id="module-pyalm.openai">
-<span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.openai" title="Link to this heading">¶</a></h2>
+<section id="module-pyalm.models.openai">
+<span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.models.openai" title="Link to this heading">¶</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.openai.</span></span><span class="sig-name descname"><span class="pre">OpenAI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">openai_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">azure_endpoint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'2023-05-15'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.models.openai.</span></span><span class="sig-name descname"><span class="pre">OpenAI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">openai_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">azure_endpoint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'2023-05-15'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI" title="Link to this definition">¶</a></dt>
 <dd><dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.available_models">
-<span class="sig-name descname"><span class="pre">available_models</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['gpt-3.5-turbo',</span> <span class="pre">'gpt-3.5-turbo-16k',</span> <span class="pre">'gpt-4']</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.available_models" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.available_models">
+<span class="sig-name descname"><span class="pre">available_models</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['gpt-3.5-turbo',</span> <span class="pre">'gpt-3.5-turbo-16k',</span> <span class="pre">'gpt-4']</span></em><a class="headerlink" href="#pyalm.models.openai.OpenAI.available_models" title="Link to this definition">¶</a></dt>
 <dd><p>All models that are known to work</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.build_prompt">
-<span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conv_history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.build_prompt" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.build_prompt">
+<span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conv_history</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.build_prompt" title="Link to this definition">¶</a></dt>
 <dd><p>Build prompt in format native to library</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -72,8 +72,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.create_native_completion">
-<span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.create_native_completion" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.create_native_completion">
+<span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.create_native_completion" title="Link to this definition">¶</a></dt>
 <dd><p>Library native completion retriever. Different for each library. No processing of output is done</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -95,8 +95,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.create_native_generator">
-<span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.create_native_generator" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.create_native_generator">
+<span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.create_native_generator" title="Link to this definition">¶</a></dt>
 <dd><p>Library native generator for tokens. Different for each library. No processing of output is done</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -115,13 +115,13 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.get_available_models">
-<span class="sig-name descname"><span class="pre">get_available_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.get_available_models" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.get_available_models">
+<span class="sig-name descname"><span class="pre">get_available_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.get_available_models" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.get_n_tokens">
-<span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.get_n_tokens" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.get_n_tokens">
+<span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.get_n_tokens" title="Link to this definition">¶</a></dt>
 <dd><p>How many tokens are in a string</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -134,19 +134,19 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.pricing">
-<span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'gpt-3.5-turbo':</span> <span class="pre">{'input':</span> <span class="pre">0.0015,</span> <span class="pre">'output':</span> <span class="pre">0.002},</span> <span class="pre">'gpt-3.5-turbo-16k':</span> <span class="pre">{'input':</span> <span class="pre">0.003,</span> <span class="pre">'output':</span> <span class="pre">0.004},</span> <span class="pre">'gpt-4':</span> <span class="pre">{'input':</span> <span class="pre">0.03,</span> <span class="pre">'output':</span> <span class="pre">0.06}}</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.pricing" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.pricing">
+<span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'gpt-3.5-turbo':</span> <span class="pre">{'input':</span> <span class="pre">0.0015,</span> <span class="pre">'output':</span> <span class="pre">0.002},</span> <span class="pre">'gpt-3.5-turbo-16k':</span> <span class="pre">{'input':</span> <span class="pre">0.003,</span> <span class="pre">'output':</span> <span class="pre">0.004},</span> <span class="pre">'gpt-4':</span> <span class="pre">{'input':</span> <span class="pre">0.03,</span> <span class="pre">'output':</span> <span class="pre">0.06}}</span></em><a class="headerlink" href="#pyalm.models.openai.OpenAI.pricing" title="Link to this definition">¶</a></dt>
 <dd><p>Pricing per input and output tokens in a prompt. Streaming costs the same</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.pricing_meta">
-<span class="sig-name descname"><span class="pre">pricing_meta</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'currency':</span> <span class="pre">'$',</span> <span class="pre">'token_unit':</span> <span class="pre">1000}</span></em><a class="headerlink" href="#pyalm.openai.OpenAI.pricing_meta" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.pricing_meta">
+<span class="sig-name descname"><span class="pre">pricing_meta</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'currency':</span> <span class="pre">'$',</span> <span class="pre">'token_unit':</span> <span class="pre">1000}</span></em><a class="headerlink" href="#pyalm.models.openai.OpenAI.pricing_meta" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.tokenize">
-<span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.tokenize" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.tokenize">
+<span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.tokenize" title="Link to this definition">¶</a></dt>
 <dd><p>Text to token as vector representation</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -159,8 +159,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.openai.OpenAI.tokenize_as_str">
-<span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.openai.OpenAI.tokenize_as_str" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.openai.OpenAI.tokenize_as_str">
+<span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.openai.OpenAI.tokenize_as_str" title="Link to this definition">¶</a></dt>
 <dd><p>Text to token as vector representation but each token is converted to string</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -200,7 +200,7 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 <li class="toctree-l1"><a class="reference internal" href="module_llama.html">Local LlaMa models</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">OpenAI</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#intro">Intro</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-pyalm.openai">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-pyalm.models.openai">Documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="module_aleph_alpha.html">Aleph Alpha</a></li>

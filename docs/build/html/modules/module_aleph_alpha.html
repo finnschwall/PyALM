@@ -51,19 +51,19 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </pre></div>
 </div>
 </section>
-<section id="module-pyalm.alephalpha">
-<span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.alephalpha" title="Link to this heading">¶</a></h2>
+<section id="module-pyalm.models.alephalpha">
+<span id="documentation"></span><h2>Documentation<a class="headerlink" href="#module-pyalm.models.alephalpha" title="Link to this heading">¶</a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.alephalpha.</span></span><span class="sig-name descname"><span class="pre">AlephAlpha</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aleph_alpha_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyalm.models.alephalpha.</span></span><span class="sig-name descname"><span class="pre">AlephAlpha</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_path_or_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aleph_alpha_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_ctx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2048</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha" title="Link to this definition">¶</a></dt>
 <dd><dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.available_models">
-<span class="sig-name descname"><span class="pre">available_models</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['luminous-supreme',</span> <span class="pre">'luminous-base',</span> <span class="pre">'luminous-extended-control',</span> <span class="pre">'luminous-base-control',</span> <span class="pre">'luminous-supreme-control',</span> <span class="pre">'luminous-extended']</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.available_models" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.available_models">
+<span class="sig-name descname"><span class="pre">available_models</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['luminous-supreme',</span> <span class="pre">'luminous-base',</span> <span class="pre">'luminous-extended-control',</span> <span class="pre">'luminous-base-control',</span> <span class="pre">'luminous-supreme-control',</span> <span class="pre">'luminous-extended']</span></em><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.available_models" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.build_prompt">
-<span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preserve_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.build_prompt" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.build_prompt">
+<span class="sig-name descname"><span class="pre">build_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">preserve_flow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.build_prompt" title="Link to this definition">¶</a></dt>
 <dd><p>Build prompt in format native to library</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -76,8 +76,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.create_native_completion">
-<span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.create_native_completion" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.create_native_completion">
+<span class="sig-name descname"><span class="pre">create_native_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_probs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.create_native_completion" title="Link to this definition">¶</a></dt>
 <dd><p>Library native completion retriever. Different for each library. No processing of output is done</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -99,8 +99,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.create_native_generator">
-<span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.create_native_generator" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.create_native_generator">
+<span class="sig-name descname"><span class="pre">create_native_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_prob_abs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.create_native_generator" title="Link to this definition">¶</a></dt>
 <dd><p>Library native generator for tokens. Different for each library. No processing of output is done</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -119,13 +119,13 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.detokenize">
-<span class="sig-name descname"><span class="pre">detokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">toks</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.detokenize" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.detokenize">
+<span class="sig-name descname"><span class="pre">detokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">toks</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.detokenize" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.get_n_tokens">
-<span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.get_n_tokens" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.get_n_tokens">
+<span class="sig-name descname"><span class="pre">get_n_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.get_n_tokens" title="Link to this definition">¶</a></dt>
 <dd><p>How many tokens are in a string</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -138,8 +138,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.get_remaining_credits">
-<span class="sig-name descname"><span class="pre">get_remaining_credits</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.get_remaining_credits" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.get_remaining_credits">
+<span class="sig-name descname"><span class="pre">get_remaining_credits</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.get_remaining_credits" title="Link to this definition">¶</a></dt>
 <dd><p>How many credits are still available in the given API key</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -149,8 +149,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.image_from_source">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_from_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.image_from_source" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.image_from_source">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">image_from_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.image_from_source" title="Link to this definition">¶</a></dt>
 <dd><p>Create Aleph compatible image from e.g. file, url etc.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -163,8 +163,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.multimodal_completion">
-<span class="sig-name descname"><span class="pre">multimodal_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prompt_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.multimodal_completion" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.multimodal_completion">
+<span class="sig-name descname"><span class="pre">multimodal_completion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prompt_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tokens</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.multimodal_completion" title="Link to this definition">¶</a></dt>
 <dd><p>Prompt the model using multimodal input</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -182,31 +182,31 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing">
-<span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-bas':</span> <span class="pre">0.03,</span> <span class="pre">'luminous-base-control':</span> <span class="pre">0.0375,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.045,</span> <span class="pre">'luminous-extended-control':</span> <span class="pre">0.05625,</span> <span class="pre">'luminous-supreme':</span> <span class="pre">0.175,</span> <span class="pre">'luminous-supreme-control':</span> <span class="pre">0.21875}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.pricing">
+<span class="sig-name descname"><span class="pre">pricing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-bas':</span> <span class="pre">0.03,</span> <span class="pre">'luminous-base-control':</span> <span class="pre">0.0375,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.045,</span> <span class="pre">'luminous-extended-control':</span> <span class="pre">0.05625,</span> <span class="pre">'luminous-supreme':</span> <span class="pre">0.175,</span> <span class="pre">'luminous-supreme-control':</span> <span class="pre">0.21875}</span></em><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.pricing" title="Link to this definition">¶</a></dt>
 <dd><p>Pricing per token</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_factors">
-<span class="sig-name descname"><span class="pre">pricing_factors</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Complete':</span> <span class="pre">{'input':</span> <span class="pre">1,</span> <span class="pre">'output':</span> <span class="pre">1.1},</span> <span class="pre">'Summarize':</span> <span class="pre">{'input':</span> <span class="pre">1.3,</span> <span class="pre">'output':</span> <span class="pre">1.1}}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing_factors" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.pricing_factors">
+<span class="sig-name descname"><span class="pre">pricing_factors</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'Complete':</span> <span class="pre">{'input':</span> <span class="pre">1,</span> <span class="pre">'output':</span> <span class="pre">1.1},</span> <span class="pre">'Summarize':</span> <span class="pre">{'input':</span> <span class="pre">1.3,</span> <span class="pre">'output':</span> <span class="pre">1.1}}</span></em><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.pricing_factors" title="Link to this definition">¶</a></dt>
 <dd><p>Pricing factor depending on model and whether it is prompt or output</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_img">
-<span class="sig-name descname"><span class="pre">pricing_img</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-base':</span> <span class="pre">0.03024,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.04536}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing_img" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.pricing_img">
+<span class="sig-name descname"><span class="pre">pricing_img</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'luminous-base':</span> <span class="pre">0.03024,</span> <span class="pre">'luminous-extended':</span> <span class="pre">0.04536}</span></em><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.pricing_img" title="Link to this definition">¶</a></dt>
 <dd><p>Cost per processed image</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.pricing_meta">
-<span class="sig-name descname"><span class="pre">pricing_meta</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'currency':</span> <span class="pre">'credits',</span> <span class="pre">'token_unit':</span> <span class="pre">1000,</span> <span class="pre">'€/Credits':</span> <span class="pre">0.2}</span></em><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.pricing_meta" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.pricing_meta">
+<span class="sig-name descname"><span class="pre">pricing_meta</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'currency':</span> <span class="pre">'credits',</span> <span class="pre">'token_unit':</span> <span class="pre">1000,</span> <span class="pre">'€/Credits':</span> <span class="pre">0.2}</span></em><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.pricing_meta" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.summarize">
-<span class="sig-name descname"><span class="pre">summarize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_docx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.summarize" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.summarize">
+<span class="sig-name descname"><span class="pre">summarize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_to_docx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.summarize" title="Link to this definition">¶</a></dt>
 <dd><p>Summarize a text using the current model</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -222,8 +222,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.tokenize">
-<span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.tokenize" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.tokenize">
+<span class="sig-name descname"><span class="pre">tokenize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.tokenize" title="Link to this definition">¶</a></dt>
 <dd><p>Text to token as vector representation</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -236,8 +236,8 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="pyalm.alephalpha.AlephAlpha.tokenize_as_str">
-<span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.alephalpha.AlephAlpha.tokenize_as_str" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pyalm.models.alephalpha.AlephAlpha.tokenize_as_str">
+<span class="sig-name descname"><span class="pre">tokenize_as_str</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyalm.models.alephalpha.AlephAlpha.tokenize_as_str" title="Link to this definition">¶</a></dt>
 <dd><p>Text to token as vector representation but each token is converted to string</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -278,7 +278,7 @@ Cost can be accessed via <code class="docutils literal notranslate"><span class=
 <li class="toctree-l1"><a class="reference internal" href="module_openai.html">OpenAI</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Aleph Alpha</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-pyalm.alephalpha">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-pyalm.models.alephalpha">Documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="module_gemini.html">Gemini</a></li>

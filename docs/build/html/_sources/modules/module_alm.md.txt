@@ -16,7 +16,7 @@ The easiest example of all this, is the OpenAI class.
 
 ## Documentation
 ```{eval-rst}  
-.. automodule:: pyalm.alm
+.. automodule:: pyalm.internal.alm
    :members:
    :undoc-members:
 ```

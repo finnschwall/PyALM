@@ -20,7 +20,7 @@ AlephAlpha.pricing_img
 
 ## Documentation
 ```{eval-rst}  
-.. automodule:: pyalm.alephalpha
+.. automodule:: pyalm.models.alephalpha
    :members:
    :undoc-members:
 ```

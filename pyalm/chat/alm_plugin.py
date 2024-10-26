@@ -111,7 +111,6 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             queries = preprocessor_json["queries"]
             included_functions = preprocessor_json["included_functions"]
 
-
     context = None
     context_str = None
     if enable_knowledge_retrieval is True:
@@ -127,15 +126,20 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             for i in range(remainder):
                 query_sizes[i] += 1
 
-            for i,query in enumerate(queries):
+            for i, query in enumerate(queries):
                 cur_query = query if not use_multiplexing else query["query"]
-                future = await async_execute("query_db", args=[cur_query, query_sizes[i]], kwargs={"min_score": 0.5,
-                                                                                                    "max_chars": 5000},
+
+                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain[0], query_sizes[i]], kwargs={},
                                              return_future=True)
-                context, scores = await future
+                context = await future
                 for i in context:
-                    context_str += f"ID: {i['index']}\nDOC TITLE: {i['document_title']}\nHEADER: {i['header']}\n" \
-                                   f"CONTENT: {i['content']}\n"
+                    context_str += f"\n****\nID: {i['id']}\n"
+                    context_str += f"DOCUMENT TITLE: {i['document_title']}\n" if "document_title" in i else ""
+                    context_str += f"TITLE: {i['title']}\n" if "title" in i else ""
+                    context_str += f"CONTENT: {i['content']}"
+                # for i in range(len(context["distances"])):
+                #     context_str += f"ID: {context['ids'][i]}\nDOC TITLE: {context['metadatas'][i]['document_title']}\n" \
+                #                    f"CONTENT: {context['documents'][i]}\n"
         except Exception as e:
             await api.show_message("Knowledge retrieval system faulty. No context available.", "error")
             llm_logger.exception(f"Could not retrieve context from knowledge base")
@@ -164,9 +168,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             total_content += msg["content"]
             if i != len(assistant_msgs) - 1:
                 total_content += "\n"
-            citations = re.findall(r"\{\{(\d+)\}\}", msg["content"])
+            citations = re.findall(r"\{\{(\d+)\}\}", msg["content"])#re.findall(r"\{\{([a-fA-F0-9]{16})\}\}", msg["content"])#
             try:
-                citation_ids = [int(c) for c in citations]
+                citation_ids = citations
                 all_citations += citation_ids
             except Exception as e:
                 llm_logger.exception(f"Could not parse citation ids")
@@ -177,14 +181,31 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 code_calls.append({"code": msg["code"]})
     convo_idx = 0 if len(tracker.tracker) == 0 else tracker.tracker[-1]["index"] + 1
     used_citations = []
-    if context:
-        for i in context:
-            if i["index"] in all_citations:
-                used_citations.append(i)
-                # replace citations with markdow link
-                total_content = re.sub(r"\{\{" + str(i["index"]) + r"\}\}",
-                                       f"[[{i['document_title']}/{i['header']}]](javascript:showCitation({convo_idx},{i['index']}))",
-                                       total_content)
+
+    try:
+        if context:
+            for i in context:
+                if i["id"] in all_citations:
+                    used_citations.append(i)
+                    # replace citations with markdow link
+
+                    total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                                           f"[[{i['document_title']}/{i['title'] if 'title' in i else '???'}]](javascript:showCitation({convo_idx},{i['id']}))",
+                                           total_content)
+    except Exception as e:
+        llm_logger.exception(f"Could not replace citations")
+
+    for i in used_citations:
+        i["index"] = int(i["id"])
+        if "authors" not in i:
+            i["authors"] = "Unknown"
+        if "subheader" not in i:
+            if "title" in i:
+                i["subheader"] = i["title"]
+            else:
+                i["subheader"] = "Unknown"
+        if "tags" not in i:
+            i["tags"] = ["Unknown"]
 
     code_str = ""
     if len(code_calls) == 1:

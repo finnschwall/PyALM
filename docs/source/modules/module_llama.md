@@ -52,7 +52,7 @@ Will lead to errors for non 70B models. Without proper GPU this is a futile ende
 
 ## Documentation
 ```{eval-rst}  
-.. automodule:: pyalm.llama
+.. automodule:: pyalm.models.llama
    :members:
    :undoc-members:
 ```
