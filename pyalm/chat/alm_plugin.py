@@ -189,9 +189,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                     used_citations.append(i)
                     # replace citations with markdow link
 
-                    total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
-                                           f"[[{i['document_title']}/{i['title'] if 'title' in i else '???'}]](javascript:showCitation({convo_idx},{i['id']}))",
-                                           total_content)
+                    # total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                    #                        f"[[{i['document_title']}/{i['title'] if 'title' in i else '???'}]](javascript:showCitation({convo_idx},{i['id']}))",
+                    #                        total_content)
     except Exception as e:
         llm_logger.exception(f"Could not replace citations")
 
