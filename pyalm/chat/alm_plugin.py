@@ -35,8 +35,8 @@ translation_layer = var.PluginVariable("translation_layer", str, default="None",
                                        readable=var.Scope.USER, writable=var.Scope.USER)
 enable_knowledge_retrieval_var = var.PluginVariable("enable_knowledge_retrieval", bool, default=True,
                                                     readable=var.Scope.USER, writable=var.Scope.USER)
-nlp_engine = var.PluginVariable("nlp_engine", str, default="openai", readable=var.Scope.USER,
-                                writable=var.Scope.USER, options=["openai","auto", "llama","gemini"])
+nlp_engine = var.PluginVariable("nlp_engine", str, default="azure_gpt4", readable=var.Scope.USER,
+                                writable=var.Scope.USER, options=["azure_gpt4","engine1", "engine2"])
 
 
 async def translate_message(message, context=None, target_lang="DE"):
@@ -85,7 +85,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     if translation_val == "LLM":
         tracker[-1]["translated_content"] = tracker[-1]["content"]
         kwargs = {"conversation_history": conversation_tracker_yaml, "to_english": True}
-        future = await async_execute("translate_last_message", "llm_server", kwargs=kwargs, return_future=True)
+        future = await async_execute("translate_last_message", nlp_engine.get(), kwargs=kwargs, return_future=True)
         translated_msg = await future
         tracker[-1]["content"] = translated_msg
 
@@ -101,7 +101,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         kwargs = {"conversation_history": conversation_tracker_yaml,
                   "knowledge_retrieval_domain": knowledge_retrieval_domain,
                   "system_msg": system_msg}
-        future = await async_execute("get_preprocessing_json", "llm_server", kwargs=kwargs, return_future=True)
+        future = await async_execute("get_preprocessing_json", nlp_engine.get(), kwargs=kwargs, return_future=True)
         preprocessor_json, metadata = await future
         preprocessing_tokens = metadata["tokens"]["total_tokens"]
         if preprocessor_json is not None:
@@ -129,7 +129,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             for i, query in enumerate(queries):
                 cur_query = query if not use_multiplexing else query["query"]
 
-                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain[0], query_sizes[i]], kwargs={},
+                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain, query_sizes[i]], kwargs={},
                                              return_future=True)
                 context = await future
                 for i in context:
@@ -154,9 +154,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         func_list = None
     kwargs = {"conv_tracker": tracker, "context": context_str, "func_list": func_list, "system_msg": system_msg,
               "username": username,
-              "chat_store_loc": chat_store_loc,
+              "chat_store_loc": chat_store_loc.get(),
               "temp": 0}
-    future = await async_execute("create_completion_plugin", "llm_server", kwargs=kwargs, return_future=True)
+    import pickle
+    with open("/home/finn/Fraunhofer/other stuff/gpu_llm/kwargs.pkl", "wb") as f:
+        pickle.dump(kwargs, f)
+    future = await async_execute("create_completion_plugin", nlp_engine.get(), kwargs=kwargs, return_future=True)
     tracker, metadata = await future
     assistant_msgs = tracker.pop_entry()
 
@@ -188,10 +191,14 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 if i["id"] in all_citations:
                     used_citations.append(i)
                     # replace citations with markdow link
-
-                    # total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
-                    #                        f"[[{i['document_title']}/{i['title'] if 'title' in i else '???'}]](javascript:showCitation({convo_idx},{i['id']}))",
-                    #                        total_content)
+                    if 'title' in i and 'document_title' in i:
+                        total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                                               f"[[{i['document_title']}/{i['title']}]](javascript:showCitation({convo_idx},{i['id']}))",
+                                               total_content)
+                    else:
+                        total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                                               f"[[PARSE_ERR]](javascript:showCitation({convo_idx},{i['id']}))",
+                                               total_content)
     except Exception as e:
         llm_logger.exception(f"Could not replace citations")
 
@@ -224,9 +231,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         merged_tracker_entry["citations"] = used_citations
     if code_str:
         merged_tracker_entry["code"] = code_str
-    # print("\n\n")
-    # from pprint import pp
-    # pp(merged_tracker_entry, width=120)
+
     merged_tracker_entry["index"] = convo_idx
     # merged_tracker_entry["metadata"] = llm.finish_meta
     # merged_tracker_entry["processing"] = preprocessor_json

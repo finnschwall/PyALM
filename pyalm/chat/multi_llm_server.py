@@ -4,25 +4,29 @@ from pyalm import ConversationTracker
 from rixaplugin import variables as var
 from rixaplugin.decorators import global_init, worker_init, plugfunc
 from rixaplugin import worker_context, execute, async_execute
-from pyalm.models.openai import OpenAI
+from pyalm.models.llama import LLaMa
 from rixaplugin.internal.memory import _memory
 from rixaplugin.internal import api as internal_api
 from . import system_msg_templates
 import logging
 import rixaplugin.sync_api as api
-openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
-azure_endpoint = var.PluginVariable("AZURE_ENDPOINT", str, readable=var.Scope.LOCAL, default=None)
-llm_logger = logging.getLogger("rixa.llm_server")
+#openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
 
+llm_logger = logging.getLogger("rixa.llm_server")
+import time
 
 @worker_init()
 def worker_init():
-    #gpt-4-turbo
-    #gpt-4-32k-0613
-
-    #gpt-4o-2024-05-13
-    #gpt-4-32k-0613
-    llm = OpenAI("gpt-4o-2024-05-13", openai_key.get(), azure_endpoint=azure_endpoint.get())
+    import multiprocessing
+    try:
+        proc_id = int(multiprocessing.current_process().name.replace("ForkProcess-",""))
+    except:
+        proc_id=1
+    with open("models.json","r") as f:
+        models = json.load(f)
+    worker_context.proc_id = proc_id
+    path = models[proc_id-1].pop("path")
+    llm = LLaMa(path, **models[proc_id-1])
     worker_context.llm = llm
 
 
@@ -32,8 +36,12 @@ def get_total_tokens():
 
 @plugfunc()
 def create_completion_plugin(*args, **kwargs):
-    response, metadata =worker_context.llm.create_completion_plugin(*args, **kwargs)
-    # print(worker_context.llm.finish_meta)
+    # return "worked"
+    start_time = time.time()
+    print(worker_context.proc_id, " started generation")
+    response, metadata = worker_context.llm.create_completion_plugin(*args, **kwargs)
+    total_time = time.time() - start_time
+    print(worker_context.proc_id, " finished generation after ", total_time, " s")
     return response, metadata
 
 @plugfunc()
@@ -66,4 +74,3 @@ def get_preprocessing_json(conversation_history, knowledge_retrieval_domain, sys
         return None
     api.display_in_chat(text="Preprocessing done. Starting response generation...", role="partial")
     return preprocessor_json, worker_context.llm.finish_meta
-_memory.rename_plugin("llm_server","azure_gpt4")

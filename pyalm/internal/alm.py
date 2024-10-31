@@ -516,13 +516,19 @@ class ALM:
         if context:
             self.user_symbols["CONTEXT"] = context
 
-        if username and chat_store_loc.get():
-            with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
-                f.write("-------\nCALLING MODEL\n-------\n")
-                f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-4000:])
+        # if username and chat_store_loc.get():
+        #
+        #     print(username)
+        #     print(chat_store_loc.get())
+        #     with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
+        #         f.write("-------\nCALLING MODEL\n-------\n")
+        #         f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-4000:])
                 # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
         prompt_obj = self.build_prompt()
         self.prompt = prompt_obj
+
+        # print("---")
+        # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
 
         try:
             # print(self.build_prompt_as_str(use_build_prompt=True))
@@ -530,8 +536,8 @@ class ALM:
                 ret_text = self.create_native_completion(prompt_obj, temp=temp)
             else:
                 ret_text = self.create_native_completion(prompt_obj)
-            if username and chat_store_loc.get():
-                with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
+            if username and chat_store_loc:
+                with open(os.path.join(chat_store_loc, f"{username}.txt"), "a") as f:
                     f.write("\n---\nRETURN FROM MODEL\n" + ret_text + "\n")
         except Exception as e:
             self.pop_entry()
@@ -542,7 +548,6 @@ class ALM:
         end_seq = self.settings.function_sequence[1]
         pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
         matches = [(m.group(1), m.span()) for m in re.finditer(pattern, ret_text, re.DOTALL)]
-
         if len(matches) == 0:
             ret_text_copy = ret_text + end_seq
             pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
@@ -560,7 +565,10 @@ class ALM:
             return self.conversation_history, metadata
         try:
             func_seq_truncated = func_seq.strip()
+
             return_from_code = self.code_callback(func_seq_truncated)
+            if isinstance(return_from_code, Exception):
+                raise return_from_code
             kwarg_dic = {"code": func_seq_truncated, "return_value": str(return_from_code)[-1500:]}
             trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
                 self.settings.function_sequence[1], "").strip()
