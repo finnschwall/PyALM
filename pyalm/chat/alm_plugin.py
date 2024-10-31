@@ -156,9 +156,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
               "username": username,
               "chat_store_loc": chat_store_loc.get(),
               "temp": 0}
-    import pickle
-    with open("/home/finn/Fraunhofer/other stuff/gpu_llm/kwargs.pkl", "wb") as f:
-        pickle.dump(kwargs, f)
+    # import pickle
+    # with open("/home/finn/Fraunhofer/other stuff/gpu_llm/kwargs.pkl", "wb") as f:
+    #     pickle.dump(kwargs, f)
     future = await async_execute("create_completion_plugin", nlp_engine.get(), kwargs=kwargs, return_future=True)
     tracker, metadata = await future
     assistant_msgs = tracker.pop_entry()
