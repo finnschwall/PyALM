@@ -102,6 +102,7 @@ class ALM:
         if enable_functions:
             self.enable_automatic_function_calls()
         self.model = model_path_or_name
+        self.model_name = str(model_path_or_name)
 
         self.settings = ALMSettings(verbose=verbose)
         self.settings.verbose = verbose
@@ -498,6 +499,7 @@ class ALM:
     def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg=None, code_calls=0,
                                  chat_store_loc=None, username=None, temp=None, metadata=None):
         import rixaplugin.sync_api as api
+
         self.finish_meta = dict(self._finish_meta_template)
         if not metadata:
             metadata = {"total_tokens":0}
@@ -505,6 +507,7 @@ class ALM:
         start = timer()
         if conv_tracker:
             self.conversation_history = conv_tracker
+            self.conversation_history.metadata["model_name"] = self.model_name
 
         self.user_symbols["LIST_OF_FUNCTIONS"] = ""
         self.user_symbols["CONTEXT"] = ""
@@ -515,30 +518,24 @@ class ALM:
 
         if context:
             self.user_symbols["CONTEXT"] = context
-
-        # if username and chat_store_loc.get():
-        #
-        #     print(username)
-        #     print(chat_store_loc.get())
-        #     with open(os.path.join(chat_store_loc.get(), f"{username}.txt"), "a") as f:
-        #         f.write("-------\nCALLING MODEL\n-------\n")
-        #         f.write(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)[-4000:])
-                # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
         prompt_obj = self.build_prompt()
         self.prompt = prompt_obj
 
-        # print("---")
-        # print(self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True))
-
+        if conv_tracker:
+            with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "w") as f:
+                text = f"Calling model\nUser: {username}\nCurrent complete prompt:\n"
+                text += self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)
+                f.write(text)
         try:
-            # print(self.build_prompt_as_str(use_build_prompt=True))
+            with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
+                text = f"\n\n\n*************\nNEW PROMPT:\n{self.build_prompt_as_str(use_build_prompt=True, include_system_msg=False)}\n"
+                f.write(text)
             if temp:
                 ret_text = self.create_native_completion(prompt_obj, temp=temp)
             else:
                 ret_text = self.create_native_completion(prompt_obj)
-            if username and chat_store_loc:
-                with open(os.path.join(chat_store_loc, f"{username}.txt"), "a") as f:
-                    f.write("\n---\nRETURN FROM MODEL\n" + ret_text + "\n")
+            with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
+                f.write("\n\n\n*************\nRAW RETURN FROM MODEL:\n" + ret_text + "\n")
         except Exception as e:
             self.pop_entry()
             raise e
@@ -582,6 +579,10 @@ class ALM:
             else:
                 if trunced_text != "":
                     api.display_in_chat(text=trunced_text, role="partial")
+                with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
+                    text = "\n\n\n*************\nCODE WAS CALLED WITHOUT ERROR:\n"
+                    text += f"CODE: {func_seq}\nRETURN VALUE: {repr(return_from_code)}"
+                    f.write(text)
                 self.create_completion_plugin(None, context=context, func_list=func_list,
                                               code_calls=code_calls, username=username, chat_store_loc=chat_store_loc, metadata=metadata)
 
@@ -607,6 +608,10 @@ class ALM:
                 api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
                 self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq.strip(),
                                                     return_value="EXECUTION FAILED. REASON: " + str(e))
+            with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
+                text = "\n\n\n*************\nCODE WAS CALLED WITH ERROR:\n"
+                text += f"CODE: {func_seq}\nERROR:\n{tb}"
+                f.write(text)
             self.create_completion_plugin(None, context=context, func_list=func_list, code_calls=code_calls, metadata=metadata)
         end = timer()
         self.finish_meta["total_finish_time"] = end - start

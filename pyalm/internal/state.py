@@ -59,6 +59,7 @@ class ConversationTracker(DataYAML):
     data: dict = dc.field(default_factory=dict)
     user_info: dict = dc.field(default_factory=dict)
     tracker: list = dc.field(default_factory=list)
+    metadata: dict = dc.field(default_factory=dict)
 
     def reset_tracker(self):
         temp = self.tracker

@@ -29,8 +29,9 @@ class OpenAI(ALM):
         super().__init__(model_path_or_name, verbose=verbose)
         conv = {"gpt3": "gpt-3.5-turbo", "gpt-3": "gpt-3.5-turbo", "chatgpt": "gpt-3.5-turbo", "gpt4": "gpt-4",
                 "gpt-16k": "gpt-3.5-turbo-16k"}
-        self.model = conv.get(model_path_or_name, model_path_or_name)
 
+        self.model = conv.get(model_path_or_name, model_path_or_name)
+        self.model_name = self.model
         if azure_endpoint:
             if openai_key:
                 self.client = _AzureOpenAI(
@@ -93,7 +94,7 @@ class OpenAI(ALM):
 
     def create_native_completion(self, text, max_tokens=256, stop=None, keep_dict=False, token_prob_delta=None,
                                  token_prob_abs=None,
-                                 log_probs=None, **kwargs):
+                                 log_probs=None, temp=0, **kwargs):
         if isinstance(text, str):
             raise Exception("Native OpenAI call only supports calls via a json chat format")
         if token_prob_abs:
@@ -105,12 +106,11 @@ class OpenAI(ALM):
             response = self.client.chat.completions.create(model=self.model,
             messages=text,
             logit_bias=token_prob_delta,
-            stop=stop,
-            **kwargs)
+            stop=stop, temperature=temp, **kwargs)
         else:
             response = self.client.chat.completions.create(model=self.model,
             messages=text,
-            stop=stop,
+            stop=stop, temperature=temp,
             **kwargs
             )
         response_txt = response.choices[0].message.content

@@ -4,6 +4,7 @@ import re
 import requests
 
 from rixaplugin import variables as var
+from rixaplugin.data_structures.rixa_exceptions import QueueOverflowException, PluginNotFoundException
 from rixaplugin.decorators import global_init, worker_init, plugfunc
 from rixaplugin import worker_context, execute, async_execute
 
@@ -35,9 +36,10 @@ translation_layer = var.PluginVariable("translation_layer", str, default="None",
                                        readable=var.Scope.USER, writable=var.Scope.USER)
 enable_knowledge_retrieval_var = var.PluginVariable("enable_knowledge_retrieval", bool, default=True,
                                                     readable=var.Scope.USER, writable=var.Scope.USER)
-nlp_engine = var.PluginVariable("nlp_engine", str, default="azure_gpt4", readable=var.Scope.USER,
-                                writable=var.Scope.USER, options=["azure_gpt4","engine1", "engine2"])
-
+nlp_engine_options_var = var.PluginVariable("NLP_ENGINE_OPTIONS", str, default="openai")
+nlp_engine_options= nlp_engine_options_var.get().split(",")
+nlp_engine = var.PluginVariable("nlp_engine", str, default=nlp_engine_options[0], readable=var.Scope.USER,
+                                writable=var.Scope.USER, options=nlp_engine_options)
 
 async def translate_message(message, context=None, target_lang="DE"):
     url = 'https://api-free.deepl.com/v2/translate'
@@ -52,6 +54,35 @@ async def translate_message(message, context=None, target_lang="DE"):
         async with session.post(url, data=data) as response:
             response_json = await response.json()
             return response_json["translations"][0]["text"]
+
+async def load_balanced_request(func_name, args=None, kwargs=None):
+    current_idx = nlp_engine_options.index(nlp_engine.get())
+    did_balancing = False
+    did_replace=False
+    success = False
+    success_backend = ""
+    for idx in range(current_idx, len(nlp_engine_options)):
+        try:
+            fut = await async_execute(func_name, nlp_engine_options[idx], args=args, kwargs=kwargs, return_future=True)
+            ret_val = await fut
+            success = True
+            success_backend = nlp_engine_options[idx]
+            break
+        except QueueOverflowException as e:
+            did_balancing = True
+            continue
+        except PluginNotFoundException as e:
+            did_replace = True
+            continue
+    if not success:
+        raise Exception("Server overload")
+    else:
+        if did_balancing:
+            await api.show_message(f"Msg redirected to {success_backend} for load balancing", "info")
+        if did_replace:
+            await api.show_message(f"Nlp engine not found/available, redirected to {success_backend}","info")
+        return ret_val
+
 
 
 @plugfunc()
@@ -73,7 +104,6 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         user_api.scope["excluded_functions"] = ["generate_text", "get_total_tokens"]
 
     tracker = ConversationTracker.from_yaml(conversation_tracker_yaml)
-
     use_multiplexing = multiplexing.get()
     translation_val = translation_layer.get()
     if translation_val == "deepl":
@@ -85,15 +115,19 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     if translation_val == "LLM":
         tracker[-1]["translated_content"] = tracker[-1]["content"]
         kwargs = {"conversation_history": conversation_tracker_yaml, "to_english": True}
-        future = await async_execute("translate_last_message", nlp_engine.get(), kwargs=kwargs, return_future=True)
-        translated_msg = await future
+        translated_msg = await load_balanced_request("translate_last_message",  kwargs=kwargs)
         tracker[-1]["content"] = translated_msg
 
     last_usr_msg = tracker.get_last_message(ConversationRoles.USER)
 
     enable_knowledge_retrieval = enable_knowledge_retrieval_var.get() & enable_knowledge_retrieval
 
-    queries = [last_usr_msg["content"]]
+    if len(tracker.tracker)<2:
+        queries = [{"query":last_usr_msg["content"],"max_entries":5}]
+    else:
+        convo_ctx = f"assistant: {tracker[-1]['content']}\nuser: {last_usr_msg['content']}"
+        queries = [{"query":last_usr_msg["content"],"max_entries":4},
+                   {"query":convo_ctx, "max_entries": 1}]
     info_score = 4
     included_functions = None
     preprocessing_tokens = None
@@ -101,8 +135,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
         kwargs = {"conversation_history": conversation_tracker_yaml,
                   "knowledge_retrieval_domain": knowledge_retrieval_domain,
                   "system_msg": system_msg}
-        future = await async_execute("get_preprocessing_json", nlp_engine.get(), kwargs=kwargs, return_future=True)
-        preprocessor_json, metadata = await future
+        preprocessor_json, metadata = await load_balanced_request("get_preprocessing_json", kwargs=kwargs)
         preprocessing_tokens = metadata["tokens"]["total_tokens"]
         if preprocessor_json is not None:
             enable_function_calling = preprocessor_json["enable_function_calling"]
@@ -116,20 +149,19 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     if enable_knowledge_retrieval is True:
         try:
             context_str = ""
-            num_requests = len(queries)
-            maximum_entries = info_score
-            base_value = maximum_entries // num_requests
-            remainder = maximum_entries % num_requests
+            # num_requests = len(queries)
+            # maximum_entries = info_score
+            # base_value = maximum_entries // num_requests
+            # remainder = maximum_entries % num_requests
+            # query_sizes = [base_value] * num_requests
+            # for i in range(remainder):
+            #     query_sizes[i] += 1
 
-            query_sizes = [base_value] * num_requests
-
-            for i in range(remainder):
-                query_sizes[i] += 1
-
-            for i, query in enumerate(queries):
-                cur_query = query if not use_multiplexing else query["query"]
-
-                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain, query_sizes[i]], kwargs={},
+            for x, query in enumerate(queries):
+                # cur_query = query if not use_multiplexing else query["query"]
+                cur_query = query["query"]
+                print("QUERY",x, cur_query)
+                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain, query["max_entries"]], kwargs={},
                                              return_future=True)
                 context = await future
                 for i in context:
@@ -137,9 +169,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                     context_str += f"DOCUMENT TITLE: {i['document_title']}\n" if "document_title" in i else ""
                     context_str += f"TITLE: {i['title']}\n" if "title" in i else ""
                     context_str += f"CONTENT: {i['content']}"
-                # for i in range(len(context["distances"])):
-                #     context_str += f"ID: {context['ids'][i]}\nDOC TITLE: {context['metadatas'][i]['document_title']}\n" \
-                #                    f"CONTENT: {context['documents'][i]}\n"
+                if x == 0:
+                    print("----DEFAULT CONTEXT----")
+                    print(context_str)
+                if x == 1:
+                    print("----CONVO CONTEXT----")
+                    print(context_str)
         except Exception as e:
             await api.show_message("Knowledge retrieval system faulty. No context available.", "error")
             llm_logger.exception(f"Could not retrieve context from knowledge base")
@@ -156,11 +191,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
               "username": username,
               "chat_store_loc": chat_store_loc.get(),
               "temp": 0}
-    # import pickle
-    # with open("/home/finn/Fraunhofer/other stuff/gpu_llm/kwargs.pkl", "wb") as f:
-    #     pickle.dump(kwargs, f)
-    future = await async_execute("create_completion_plugin", nlp_engine.get(), kwargs=kwargs, return_future=True)
-    tracker, metadata = await future
+
+    tracker, metadata = await load_balanced_request("create_completion_plugin", kwargs=kwargs)
+
     assistant_msgs = tracker.pop_entry()
 
     all_citations = []
@@ -191,17 +224,20 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 if i["id"] in all_citations:
                     used_citations.append(i)
                     # replace citations with markdow link
-                    if 'title' in i and 'document_title' in i:
-                        total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
-                                               f"[[{i['document_title']}/{i['title']}]](javascript:showCitation({convo_idx},{i['id']}))",
-                                               total_content)
-                    else:
-                        total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
-                                               f"[[PARSE_ERR]](javascript:showCitation({convo_idx},{i['id']}))",
-                                               total_content)
+                    # if 'title' in i and 'document_title' in i:
+                    #     total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                    #                            f"[[{i['document_title']}/{i['title']}]](javascript:showCitation({convo_idx},{i['id']}))",
+                    #                            total_content)
+                    # else:
+                    #     total_content = re.sub(r"\{\{" + str(i["id"]) + r"\}\}",
+                    #                            f"[[PARSE_ERR]](javascript:showCitation({convo_idx},{i['id']}))",
+                    #                            total_content)
     except Exception as e:
         llm_logger.exception(f"Could not replace citations")
-
+    if context:
+        unused_citations = [i["id"] for i in context if i["id"] not in all_citations]
+    else:
+        unused_citations = []
     for i in used_citations:
         i["index"] = int(i["id"])
         if "authors" not in i:
@@ -213,6 +249,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 i["subheader"] = "Unknown"
         if "tags" not in i:
             i["tags"] = ["Unknown"]
+        if type(i["tags"]) == str:
+            i["tags"] = i["tags"].split(",")
+    print(used_citations)
 
     code_str = ""
     if len(code_calls) == 1:
@@ -255,11 +294,13 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
     tracker.tracker.append(merged_tracker_entry)
     if translation_val == "LLM":
         kwargs = {"conversation_history": tracker.to_yaml(), "to_english": False}
-        future = await async_execute("translate_last_message", "llm_server", kwargs=kwargs, return_future=True)
-        translated_msg = await future
+        # future = await async_execute("translate_last_message", "llm_server", kwargs=kwargs, return_future=True)
+        # translated_msg = await future
+        translated_msg = await load_balanced_request("translate_last_message", kwargs=kwargs)
         tracker[-1]["translated_content"] = translated_msg
 
-
-    # api.datalog_to_tmp(f"\n\n\n{tracker.to_yaml()}")
+    tracker[-1]["metadata"]["timestamp"] = datetime.datetime.now().isoformat()
+    tracker[-1]["metadata"]["unused_citations"] = unused_citations
+    tracker[-1]["metadata"]["used_citations"] = all_citations
 
     return tracker.to_yaml()

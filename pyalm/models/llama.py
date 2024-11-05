@@ -7,21 +7,23 @@ import llama_cpp
 
 class LLaMa(ALM):
 
-    def __init__(self, model_path_or_name, verbose=0, **kwargs):
+    def __init__(self, model_path_or_name, verbose=0, no_system_msg_supported= False,**kwargs):
         super().__init__(model_path_or_name, verbose=verbose)
-
+        self.model_name = model_path_or_name.split("/")[-1]
+        print(self.model_name)
         self.model = llama_cpp.Llama(model_path_or_name, verbose=verbose, **kwargs)
 
         llama_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
         self._built_in_symbols.update(llama_specifics)
+        self.no_system_msg_supported = no_system_msg_supported
 
 
 
-    def create_native_completion(self, text,**kwargs):
+    def create_native_completion(self, text, temp=0, **kwargs):
         if isinstance(text, str):
-            return self.model.create_completion(text, **kwargs)
+            return self.model.create_completion(text, temperature=temp, **kwargs)
         else:
-            answer = self.model.create_chat_completion(text, **kwargs)
+            answer = self.model.create_chat_completion(text, temperature=temp, **kwargs)
             self.finish_meta["tokens"] = answer["usage"]
             return answer["choices"][0]["message"]["content"]
 
@@ -48,9 +50,10 @@ class LLaMa(ALM):
             system_msg = self.replace_symbols(system_msg)
             if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
                 system_msg += "\n\nGATHERED CONTEXT/KNOWLEDGE:\n" + self.symbols["CONTEXT"]
-            prompt.insert(0, {"role": self.symbols["SYSTEM"], "content": system_msg
-                })
-
+            if self.no_system_msg_supported:
+                prompt.insert(0, {"role": "user", "content": "###System message###\n"+system_msg})
+            else:
+                prompt.insert(0, {"role": self.symbols["SYSTEM"], "content": system_msg})
 
         for i in conv_history:
             prompt_content = ""

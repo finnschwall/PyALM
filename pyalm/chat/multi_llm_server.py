@@ -10,7 +10,7 @@ from rixaplugin.internal import api as internal_api
 from . import system_msg_templates
 import logging
 import rixaplugin.sync_api as api
-#openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
+# openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
 
 llm_logger = logging.getLogger("rixa.llm_server")
 import time

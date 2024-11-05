@@ -66,4 +66,4 @@ def get_preprocessing_json(conversation_history, knowledge_retrieval_domain, sys
         return None
     api.display_in_chat(text="Preprocessing done. Starting response generation...", role="partial")
     return preprocessor_json, worker_context.llm.finish_meta
-_memory.rename_plugin("llm_server","azure_gpt4")
+_memory.rename_plugin("llm_server","openai")
