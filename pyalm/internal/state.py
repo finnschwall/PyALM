@@ -148,7 +148,7 @@ class ConversationTracker(DataYAML):
             ret.append(self.tracker.pop(i))
         return ret
 
-    def add_entry(self, content=None, role=None, meta=None, code=None, return_value=None, feedback=None,
+    def add_entry(self, content=None, role=None, metadata=None, code=None, return_value=None, feedback=None,
                   sentiment=None,processing=None, add_keys=None):
         if not role and len(self.tracker) == 0:
             role = ConversationRoles.USER
@@ -161,15 +161,15 @@ class ConversationTracker(DataYAML):
         del loc_dic["role"]
         self._add_entry(role, **loc_dic)
 
-    def _add_entry(self, role, content=None, meta=None, feedback=None, code=None, return_value=None,
+    def _add_entry(self, role, content=None, metadata=None, feedback=None, code=None, return_value=None,
                    sentiment=None, processing=None, add_keys=None):
         role = _get_enum_value(role, ConversationRoles)
 
         entry = {"role": role}
         if content:
             entry["content"] = content
-        if meta:
-            entry["meta"] = meta
+        if metadata:
+            entry["metadata"] = metadata
         if code:
             entry["code"] = code
         if return_value:

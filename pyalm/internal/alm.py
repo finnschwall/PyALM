@@ -8,6 +8,9 @@ from warnings import warn
 import contextlib
 import io
 from abc import abstractmethod
+
+import numpy as np
+
 import rixaplugin
 from pyalm.chat import system_msg_templates
 from pyalm.internal.state import *
@@ -97,7 +100,7 @@ class ALM:
     def preserved_sequences(self, value):
         self.settings.preserved_sequences = value
 
-    def __init__(self, model_path_or_name, verbose=0, enable_functions=False):
+    def __init__(self, model_path_or_name, verbose=0, enable_functions=False, **kwargs):
         self.code_calls = None
         if enable_functions:
             self.enable_automatic_function_calls()
@@ -121,6 +124,8 @@ class ALM:
         """
         Function that will be called to execute code
         """
+
+        self.n_ctx = -1 if not kwargs.get("n_ctx") else kwargs["n_ctx"]
 
         def _include_code_call_sys_msg(match, symbols, text=None):
             if self.include_function_msg and self.symbols.get("LIST_OF_FUNCTIONS") and self.symbols[
@@ -468,19 +473,6 @@ class ALM:
             self.finish_meta["total_finish_time"] = end - start
             return self.raw_generated_text
 
-        # status, seq, new_text = self._extract_and_handle_functions(ret_text, call_functions=handle_functions)
-
-        # if status != ParseStatus.NO_FUNC_SEQUENCE_FOUND:
-        #     self.finish_meta["function_call"]["found"] = True
-        #     self.finish_meta["function_call"]["sequence"] = seq
-
-        # if status != ParseStatus.PARSED_EXECUTED_OK:
-        #     if chat:
-        #         self.add_tracker_entry(ret_text, ConversationRoles.ASSISTANT)
-        #     end = timer()
-        #     self.finish_meta["total_finish_time"] = end - start
-        #     return self.raw_generated_text
-        # self.raw_generated_text = new_text + "\n"
         try:
             stop.remove(self.settings.function_sequence[1])
         except:
@@ -509,6 +501,7 @@ class ALM:
             self.conversation_history = conv_tracker
             self.conversation_history.metadata["model_name"] = self.model_name
 
+
         self.user_symbols["LIST_OF_FUNCTIONS"] = ""
         self.user_symbols["CONTEXT"] = ""
         self.user_symbols["USR_SYSTEM_MSG"] = "" if not system_msg else system_msg
@@ -519,6 +512,24 @@ class ALM:
         if context:
             self.user_symbols["CONTEXT"] = context
         prompt_obj = self.build_prompt()
+        if isinstance(prompt_obj[0], dict):
+            len_system = len(prompt_obj[0]["content"])
+            conv_sizes = [len_system]+[len(x["content"]) for x in prompt_obj[1:][::-1]]
+            # when 60% of n_ctx is used, remove oldest entries until we are below again
+            cumsum = np.cumsum(conv_sizes)
+            max_chars = self.n_ctx*0.6*3
+            # factor 4 is because 1 token is ~4 characters
+            # factor 0.6 to make sure the model does not run out of context even for long answers
+            if self.n_ctx != -1 and cumsum[-1] > max_chars:
+                api.show_message("Chat has been truncated due to being too long. Consider deleting the chat history")
+                idx = np.where(cumsum > max_chars)[0]
+                if len(idx) == 0:
+                    idx = -1
+                else:
+                    idx = -idx[0]
+                    if idx == 0:
+                        idx = -1
+                prompt_obj = [prompt_obj[0]]+prompt_obj[idx:]
         self.prompt = prompt_obj
 
         if conv_tracker:
@@ -528,14 +539,14 @@ class ALM:
                 f.write(text)
         try:
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
-                text = f"\n\n\n*************\nNEW PROMPT:\n{self.build_prompt_as_str(use_build_prompt=True, include_system_msg=False)}\n"
+                text = f"\n\n\n*************\nNEW PROMPT:\n{self.build_prompt_as_str(use_build_prompt=True,include_system_msg=False)}\n"
                 f.write(text)
             if temp:
                 ret_text = self.create_native_completion(prompt_obj, temp=temp)
             else:
                 ret_text = self.create_native_completion(prompt_obj)
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
-                f.write("\n\n\n*************\nRAW RETURN FROM MODEL:\n" + ret_text + "\n")
+                f.write("\n\n\n*************\nRAW RETURN FROM MODEL:\n" + ret_text + "\n*************\n\n")
         except Exception as e:
             self.pop_entry()
             raise e
@@ -562,11 +573,17 @@ class ALM:
             return self.conversation_history, metadata
         try:
             func_seq_truncated = func_seq.strip()
+            # sometimes the model misses the end sequence and tries to end with #TO_USER. So we see if the end sequence is missing
+            # if thats the case AND #TO_USER is in the function call, we truncate the function call to the last #TO_USER
+            contained_to_user = False
+            if "#TO_USER" in func_seq_truncated and not func_seq_truncated.endswith(end_seq):
+                func_seq_truncated = func_seq_truncated.rsplit("#TO_USER", 1)[0].strip()
+                contained_to_user = True
 
             return_from_code = self.code_callback(func_seq_truncated)
             if isinstance(return_from_code, Exception):
                 raise return_from_code
-            kwarg_dic = {"code": func_seq_truncated, "return_value": str(return_from_code)[-1500:]}
+            kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code}#str(return_from_code)[-1500:] if return_from_code else "None (Function executed without return value and without error)"}
             trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
                 self.settings.function_sequence[1], "").strip()
             if trunced_text != "":
@@ -574,7 +591,7 @@ class ALM:
                                                     ConversationRoles.ASSISTANT, **kwarg_dic)
             else:
                 self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
-            if "#TO_USER" in func_seq:
+            if "#TO_USER" in func_seq or contained_to_user:
                 return self.conversation_history, metadata
             else:
                 if trunced_text != "":
@@ -592,7 +609,8 @@ class ALM:
             tb = traceback.format_exc()
             alm_logger.exception(f"Exception occurred in code:\n{func_seq}\n{tb}")
 
-            api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
+            # api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
+            api.show_message("An error occured. RIXA will try to fix it. This may take a few seconds.")
             if "#TO_USER" in func_seq:
                 kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
                 trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
@@ -793,7 +811,7 @@ class ALM:
         self.finish_meta["total_finish_time"] = end - start
 
     def build_prompt_as_str(self, new_lines_per_role=1, new_lines_afer_role=0, block_gen_prefix=False, raw=False,
-                            include_system_msg=True, use_build_prompt=False):
+                            include_system_msg=True, use_build_prompt=False, max_index=0):
         """
         Build a prompt in string form
         :param new_lines_per_role: Newlines after Role+message
@@ -806,7 +824,7 @@ class ALM:
         if use_build_prompt:
             prompt_obj = self.build_prompt()
             prompt_str = ""
-            for i in prompt_obj:
+            for i in prompt_obj[:max_index] if max_index != 0 else prompt_obj:
                 if not include_system_msg:
                     if i["role"] == "system":
                         continue
@@ -822,7 +840,7 @@ class ALM:
             if self.conversation_history.system_message and self.conversation_history.system_message != "":
                 prompt += f"{self.symbols['SYSTEM']}:{after_role}{rep_sym(self.system_msg)}" + "\n" * new_lines_per_role
 
-        for i in self.conversation_history.tracker:
+        for i in self.conversation_history.tracker[:max_index] if max_index != 0 else self.conversation_history.tracker:
             role = self.symbols[str(i["role"])]
             if "code" in i and i["code"]:
                 code_str = "CODE_START\n" + i["code"] + "\nCODE_START"

@@ -8,9 +8,8 @@ import llama_cpp
 class LLaMa(ALM):
 
     def __init__(self, model_path_or_name, verbose=0, no_system_msg_supported= False,**kwargs):
-        super().__init__(model_path_or_name, verbose=verbose)
+        super().__init__(model_path_or_name, verbose=verbose, **kwargs)
         self.model_name = model_path_or_name.split("/")[-1]
-        print(self.model_name)
         self.model = llama_cpp.Llama(model_path_or_name, verbose=verbose, **kwargs)
 
         llama_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
@@ -28,9 +27,25 @@ class LLaMa(ALM):
             return answer["choices"][0]["message"]["content"]
 
 
-    def create_native_generator(self, text, keep_dict=False, token_prob_delta=None,
-                                token_prob_abs=None, **kwargs):
-        raise NotImplementedError()
+    def _extract_message_from_generator(self, gen):
+        for i in gen:
+            token = i["choices"][0]["text"]
+            finish_reason = i["choices"][0]["finish_reason"]
+            if finish_reason:
+                self.finish_meta["finish_reason"] = finish_reason
+            if token is None:
+                continue
+            yield token, None
+
+    def create_native_generator(self, text, **kwargs):
+        if isinstance(text, str):
+            gen = self.model.create_completion(text, stream=True, **kwargs)
+        else:
+            gen = self.model.create_chat_completion(text, stream=True, **kwargs)
+        return self._extract_message_from_generator(gen)
+
+    def get_n_tokens(self, text):
+        return len(self.model.tokenize(bytes(text, "utf-8")))
 
 
     def build_prompt(self, conv_history=None, system_msg=None):

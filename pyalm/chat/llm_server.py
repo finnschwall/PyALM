@@ -1,5 +1,6 @@
 import json
 
+import rixaplugin
 from pyalm import ConversationTracker
 from rixaplugin import variables as var
 from rixaplugin.decorators import global_init, worker_init, plugfunc
@@ -12,7 +13,9 @@ import logging
 import rixaplugin.sync_api as api
 openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
 azure_endpoint = var.PluginVariable("AZURE_ENDPOINT", str, readable=var.Scope.LOCAL, default=None)
+max_ctx_openai = var.PluginVariable("MAX_CTX_OPENAI", int, readable=var.Scope.LOCAL, default=8000)
 llm_logger = logging.getLogger("rixa.llm_server")
+
 
 
 @worker_init()
@@ -22,7 +25,7 @@ def worker_init():
 
     #gpt-4o-2024-05-13
     #gpt-4-32k-0613
-    llm = OpenAI("gpt-4o-2024-05-13", openai_key.get(), azure_endpoint=azure_endpoint.get())
+    llm = OpenAI("gpt-4o-2024-05-13", openai_key.get(), azure_endpoint=azure_endpoint.get(), n_ctx = max_ctx_openai.get())
     worker_context.llm = llm
 
 

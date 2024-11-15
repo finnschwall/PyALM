@@ -4,12 +4,14 @@ from pyalm import ConversationTracker
 from rixaplugin import variables as var
 from rixaplugin.decorators import global_init, worker_init, plugfunc
 from rixaplugin import worker_context, execute, async_execute
-from pyalm.models.llama import LLaMa
+
 from rixaplugin.internal.memory import _memory
 from rixaplugin.internal import api as internal_api
+import rixaplugin
 from . import system_msg_templates
 import logging
 import rixaplugin.sync_api as api
+import os
 # openai_key = var.PluginVariable("OPENAI_KEY", str, readable=var.Scope.LOCAL)
 
 llm_logger = logging.getLogger("rixa.llm_server")
@@ -17,17 +19,36 @@ import time
 
 @worker_init()
 def worker_init():
-    import multiprocessing
     try:
-        proc_id = int(multiprocessing.current_process().name.replace("ForkProcess-",""))
-    except:
-        proc_id=1
-    with open("models.json","r") as f:
-        models = json.load(f)
-    worker_context.proc_id = proc_id
-    path = models[proc_id-1].pop("path")
-    llm = LLaMa(path, **models[proc_id-1])
-    worker_context.llm = llm
+        import multiprocessing
+        try:
+            proc_id = int(multiprocessing.current_process().name.replace("ForkProcess-",""))
+        except:
+            proc_id=1
+        with open("models.json","r") as f:
+            models = json.load(f)
+        worker_context.proc_id = proc_id
+        path = models[proc_id-1].pop("path")
+        if "quantize_kv" in models[proc_id-1]:
+            del models[proc_id-1]["quantize_kv"]
+            import llama_cpp
+            add_kwargs = {"type_k" : llama_cpp.GGML_TYPE_Q4_0,
+            "type_v" : llama_cpp.GGML_TYPE_Q4_0,
+            "flash_attn" : True}
+            models[proc_id-1].update(add_kwargs)
+        if "gpus" in models[proc_id-1]:
+            gpus = models[proc_id-1].pop("gpus")
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(gpus)
+        from pyalm.models.llama import LLaMa
+        llm = LLaMa(path, **models[proc_id-1])
+        worker_context.llm = llm
+    except Exception as e:
+        print(repr(e))
+        raise e
+
+
+# @plugfunc()
+# def test_cmd():
 
 
 @plugfunc()
@@ -41,7 +62,7 @@ def create_completion_plugin(*args, **kwargs):
     print(worker_context.proc_id, " started generation")
     response, metadata = worker_context.llm.create_completion_plugin(*args, **kwargs)
     total_time = time.time() - start_time
-    print(worker_context.proc_id, " finished generation after ", total_time, " s")
+    print(worker_context.proc_id, " finished generation after ", round(total_time,3), " s")
     return response, metadata
 
 @plugfunc()
