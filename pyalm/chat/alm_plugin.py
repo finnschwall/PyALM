@@ -171,7 +171,7 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             for x, query in enumerate(queries):
                 # cur_query = query if not use_multiplexing else query["query"]
                 cur_query = query["query"]
-                print("QUERY",x, cur_query)
+                # print("QUERY",x, cur_query)
                 future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain, query["max_entries"]], kwargs={},
                                              return_future=True)
                 context = await future
@@ -185,12 +185,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                     context_str += f"TITLE: {i['title']}\n" if "title" in i else ""
                     context_str += f"CONTENT: {i['content']}"
                     used_ids.append(i["id"])
-            if x == 0:
-                print("----DEFAULT CONTEXT----")
-                print(context_str)
-            if x == 1:
-                print("----CONVO CONTEXT----")
-                print(context_str)
+            # if x == 0:
+            #     print("----DEFAULT CONTEXT----")
+            #     print(context_str)
+            # if x == 1:
+            #     print("----CONVO CONTEXT----")
+            #     print(context_str)
             # merge the contexts into one array
             context = [item for sublist in contexts for item in sublist]
         except Exception as e:
