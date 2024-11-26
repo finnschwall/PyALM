@@ -1,4 +1,5 @@
 import json
+import random
 
 from pyalm import ConversationTracker, ConversationRoles
 from rixaplugin import variables as var
@@ -29,10 +30,12 @@ def worker_init():
 def get_total_tokens():
     return -1
 
-wait_time = 1
+
 @plugfunc()
 def create_completion_plugin(*args, **kwargs):
-    print(f"Fake completion started {worker_context.proc_id}")
+    wait_time = random.randint(5, 30)
+    print(f"Fake completion started {worker_context.proc_id}. Waiting {wait_time} seconds.")
+
     time.sleep(wait_time)
     tracker = kwargs["conv_tracker"]
     tracker.metadata = {"model_name" : "fake_llm_server"}
@@ -52,4 +55,4 @@ def translate_last_message(conversation_history, to_english=True):
 def get_preprocessing_json(conversation_history, knowledge_retrieval_domain, system_msg=None):
     return None
 
-_memory.rename_plugin("fake_llm_server", "engine1")
+_memory.rename_plugin("fake_llm_server", "openai")
