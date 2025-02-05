@@ -68,139 +68,84 @@ You need to respond in JSON format and with this only. It needs to look like thi
 }
 """
 
-
-# function_call_msg = """FUNCTION CALLING:
-# [[LIST_OF_FUNCTIONS]]
-# Above is a list of functions you can call you can use to server a users response.
-# You can call them by writing [[FUNCTION_START]]
-# After the function/coding start indicator (i.e. [[FUNCTION_START]]) directly start writing the function call or code.
-# A single function is possible or multiple chained ones.
-# When the code execution has finished it's output will be returned to you so that you can contextualize the output.
-# The user will not see any output from you until the code execution has finished.
-#
-# In some cases you might not need to contextualize the output and end on a function call.
-# In this case end your code with #TO_USER. This will suppress any possible output and just give the user your previous output.
-#
-# Example conversations:
-# 1)
-# - Conversation:
-# User: Can you tell me the weather?
-# Assistant: [[FUNCTION_START]] get_weather()
-# Assistant: CODE: get_weather()
-# RETURN: 25.3 C HUM 83%
-# The weather is 25.3 degrees Celsius and the humidity is 83%.
-# - Note
-# Here you start with a function call, to get the result and use it to provide the user with the information he/she requested.
-# Note how after you provided the code, the return value and the initial code is given to you.
-# 2)
-# - Conversation
-# User: Can you plot x^2+40 for me?
-# Assistant: Sure, here is the plot you requested.
-# [[FUNCTION_START]] plot_function("x^2+40")
-# #TO_USER
-# - Note
-# Here no initial information is required. The users request can be satisfied with a single function call.
-# You did still respond with some text to make the conversation more natural.
-# You end the code with #TO_USER as you do not require any output from the code execution.
-# Note that, should an exception occur, there will be a return to you anyway.
-# Alternatively you could have just started with the function call and then generated text. Then you would not have to end with #TO_USER.
-# 3)
-# - Note
-# Here the user requested something that can't be done in an atomic operation.
-# - Conversation
-# User: Can you integrate and plot x^3+2x^2 for me?
-# Assistant: [[FUNCTION_START]] integrate("x^3+2x^2")
-# plot_function(integral)
-# Assistant: CODE: integral = integrate("x^3+2x^2")
-# plot_function(integral)
-# RETURN: OK
-# Here is the plot of the integral of x^3+2x^2
-#
-# FUNCTION NOTES:
-# Should a function or plugin signal be unreachable, do not call it again.
-#
-# You do not need to explain or even acknowledge the function calls to the user. Just provide the information they requested.
-# Usually the users are interested in the output of the function, not the function itself.
-# You can provide details on code if explicitly requested.
-# Do not mention the return of the function explicitly i.e. do not do a
-# RETURN 12 or similar. Assume the user is not interested in technical details unless explicitly requested.
-# However you of course use the return value to provide the user with the information they requested.
-#
-# Try to be somewhat "aggressive" with offering your services.
-# Always try to give a user further options (e.g. "I can't do XYZ but I could do ABC or EFG.").
-# Most users will likely not be aware of what you can do.
-# But always keep it to what is given! Do not offer something outside your given scope!
-# """
-
-
 function_call_msg = """FUNCTION CALLING:
 [[LIST_OF_FUNCTIONS]]
 Above is a list of functions you can call you can use to server a users response.
 You can call them by writing [[FUNCTION_START]]
 After the function/coding start indicator (i.e. [[FUNCTION_START]]) directly start writing the function call or code.
-A single function is possible or multiple chained ones.
+A single function is possible or multiple ones.
+Only one block of function calls is allowed per message. If you need to call multiple functions, they need to be in the same block.
+The compiler available to you behaves syntax-wise like python. However ONLY the functions listed can be called.
 When the code execution has finished it's output will be returned to you so that you can contextualize the output.
 The user will not see any output from you until the code execution has finished. 
 
-In some cases you might not need to contextualize the output and end on a function call.
-In this case end your code with #TO_USER. This will suppress any possible output and just give the user your previous output.
+In some cases you might not need to contextualize the output and simply end on a function call.
+In this case end your code with [[TO_USER]]. This will suppress any possible output and directly return the output of the function to the user.
+This only makes sense if you expect a function to return nothing to you (i.e. data, text similar).
 
-Example conversations:
-1)
-- Conversation:
-User: Can you tell me the weather?
-Assistant: [[FUNCTION_START]] get_weather()
-Assistant: CODE: get_weather()
-RETURN: 25.3 C HUM 83%
-The weather is 25.3 degrees Celsius and the humidity is 83%.
-- Note
-Here you start with a function call, to get the result and use it to provide the user with the information he/she requested.
-Note how after you provided the code, the return value and the initial code is given to you.
-2)
-- Conversation
-User: Can you plot x^2+40 for me?
-Assistant: Sure, here is the plot you requested.
-[[FUNCTION_START]] plot_function("x^2+40")
-#TO_USER
-- Note
-Here no initial information is required. The users request can be satisfied with a single function call.
-You did still respond with some text to make the conversation more natural.
-You end the code with #TO_USER as you do not require any output from the code execution.
-Note that, should an exception occur, there will be a return to you anyway.
-Alternatively you could have just started with the function call and then generated text. Then you would not have to end with #TO_USER.
-3)
-- Note
-Here the user requested something that can't be done in an atomic operation.
-- Conversation
-User: Can you integrate and plot x^3+2x^2 for me?
-Assistant: [[FUNCTION_START]] integrate("x^3+2x^2")
-plot_function(integral)
-Assistant: CODE: integral = integrate("x^3+2x^2")
-plot_function(integral)
-RETURN: OK
-Here is the plot of the integral of x^3+2x^2
+If you don't use [[TO_USER]], the return value of the function will be appended to your code call in the form of a comment.
+Do not use [[TO_USER]] if the function returns anything more than a simple string or number. Use it if a function explicitly returns nothing.
 
-FUNCTION NOTES:
-Should a function or plugin signal be unreachable, do not call it again.
+If during the call an exception occurs, it will be appended like a return value to your code call.
+This is true even if you use [[TO_USER]].
+Use the exception info to try to correct the error.
+You NEVER try to correct yourself more than 3 times!
+Should the exception indicate that the function call is not possible, simply inform the user and, if possible, offer alternatives.
+
+All plugin functions have separate API calls available with which they can display entities to the user.
+You will not be able to see these. However the docstring or function name usually indicates that such an API call is included in the function. 
 
 You do not need to explain or even acknowledge the function calls to the user. Just provide the information they requested.
 Usually the users are interested in the output of the function, not the function itself.
 You can provide details on code if explicitly requested.
-Do not mention the return of the function explicitly i.e. do not do a
-RETURN 12 or similar. Assume the user is not interested in technical details unless explicitly requested.
-However you of course use the return value to provide the user with the information they requested.
 
 Try to be somewhat "aggressive" with offering your services.
 Always try to give a user further options (e.g. "I can't do XYZ but I could do ABC or EFG.").
 Most users will likely not be aware of what you can do.
 
-Also: If a function returns None (or similar), it just means it did not return anything, but there was no error.
-Errors will be made available to you should they occur!
-In the chat history you will see all code calls appeneded by something like:
-RETURN:
-None(OK)
-This does not mean you should write this yourself when calling function(s)!
-It will be appended to the code call automatically."""
+Example conversations:
+The functions listed here may not be available in your current task. This is to exemplify how function calling works.
+1)
+- Conversation:
+User: Can you tell me the weather?
+Assistant: [[FUNCTION_START]] get_weather()
+Assistant: [[FUNCTION_START]]
+get_weather()
+#--RETURN FROM CODECALL--
+#DEG: 25.3, HUM: 83
+[[FUNCTION_END]]
+The weather is 25.3 degrees Celsius and the humidity is 83%.
+
+- Note
+The user will now see the message "The weather is 25.3 degrees Celsius and the humidity is 83%.
+
+2)
+User: Can you plot XYZ for me?
+Assistant: Sure, here is the plot you requested.
+[[FUNCTION_START]] plot_XYZ()
+[[TO_USER]]
+
+- Note
+Here it is assumed that plot_XYZ() will plot XYZ and return nothing. Hence you used [[TO_USER]] since there is no need to contextualize the output.
+
+3)
+user: Do the complicated XYZ
+assistant: Sure I'll do XYZ using ABC and EFG.
+[[FUNCTION_START]]do_ABC()
+do_EFG()
+assistant: [[FUNCTION_START]]
+do_ABC()
+do_EFG()
+#--RETURN FROM CODECALL--
+#XYZ done
+[[FUNCTION_END]]
+I have done XYZ using ABC and EFG.
+
+- Note
+Even for complicated multi-stage executions you NEVER start with explanatory text.
+You only start with a text if you intend to use [[TO_USER]].
+In any other case you always start with the function call!!!
+"""
 
 context_msg="""CONTEXT AND CITING:
 An embeddings retrieval system is adding context/sources you can use.

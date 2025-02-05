@@ -17,12 +17,11 @@ def _get_enum_value(input_value, enum_type):
 
 
 class ConversationRoles(enum.Enum):
-    USER = "USER"
-    ASSISTANT = "ASSISTANT"
+    USER = "user"
+    ASSISTANT = "assistant"
 
     def __str__(self) -> str:
         return self.value
-
 
 @dc.dataclass
 class DataYAML(ABC):
@@ -48,18 +47,20 @@ class DataYAML(ABC):
         return instance
 
 
+
 # glob_inv_scheme =  {"USER": ConversationRoles.ASSISTANT, "ASSISTANT": ConversationRoles.USER}
 glob_inv_scheme = {ConversationRoles.USER: ConversationRoles.ASSISTANT,
-                   ConversationRoles.ASSISTANT: ConversationRoles.USER}
+                   ConversationRoles.ASSISTANT: ConversationRoles.USER,
+                   "user": "assistant", "assistant": "user"}
 
 
 @dc.dataclass(kw_only=True)
 class ConversationTracker(DataYAML):
     system_message: str = None
-    data: dict = dc.field(default_factory=dict)
-    user_info: dict = dc.field(default_factory=dict)
     tracker: list = dc.field(default_factory=list)
     metadata: dict = dc.field(default_factory=dict)
+    data: dict = dc.field(default_factory=dict)
+    user_info = None
 
     def reset_tracker(self):
         temp = self.tracker
@@ -94,7 +95,12 @@ class ConversationTracker(DataYAML):
     def __setitem__(self, key, value):
         self.tracker[key] = value
 
+    def __len__(self):
+        return len(self.tracker)
+
     def get_last_message(self, role=None, include_depth=False):
+        if not isinstance(role, str):
+            role = str(role)
         for i in range(len(self.tracker) - 1, -1, -1):
             if not role:
                 if include_depth:
@@ -150,8 +156,10 @@ class ConversationTracker(DataYAML):
 
     def add_entry(self, content=None, role=None, metadata=None, code=None, return_value=None, feedback=None,
                   sentiment=None,processing=None, add_keys=None):
+        if not isinstance(role, str):
+            role = str(role)
         if not role and len(self.tracker) == 0:
-            role = ConversationRoles.USER
+            role = str(ConversationRoles.USER)
         elif not role:
             role = self.inversion_scheme.get(self.tracker[-1]["role"])
         if not content and not code:
@@ -163,7 +171,7 @@ class ConversationTracker(DataYAML):
 
     def _add_entry(self, role, content=None, metadata=None, feedback=None, code=None, return_value=None,
                    sentiment=None, processing=None, add_keys=None):
-        role = _get_enum_value(role, ConversationRoles)
+        # role = _get_enum_value(role, ConversationRoles)
 
         entry = {"role": role}
         if content:
@@ -190,7 +198,8 @@ class ALMSettings(DataYAML):
     verbose: int = 0
     preserved_sequences: dict = dc.field(
         default_factory=lambda: {"latex_double": {"start": "$$", "end": "$$", "name": "latex_double_dollar"}})
-    function_sequence: tuple = dc.field(default_factory=lambda: ("#CODE_START", "#CODE_END"))
+    function_sequence: tuple = dc.field(default_factory=lambda: ("$$$CODE_START", "$$$CODE_END"))
+    to_user_sequence: str = "$$$TO_USER"
     global_enable_function_calls: bool = False
     automatic_function_integration: bool = False
     function_integration_template: str = "\n[[FUNCTION_START]][[FUNCTION_SEQUENCE]][[FUNCTION_END]]\n" \
@@ -219,9 +228,9 @@ def _data_yaml_constructor(loader, node):
     return cls.from_dict(data['data'])
 
 
-for i in [DataYAML, ConversationTracker]:
-    yaml.add_representer(i, _data_yaml_representer)
-    yaml.add_constructor('!' + i.__name__, _data_yaml_constructor)
+# for i in [DataYAML, ConversationTracker]:
+#     yaml.add_representer(i, _data_yaml_representer)
+#     yaml.add_constructor('!' + i.__name__, _data_yaml_constructor)
 
 
 def conversation_role_representer(dumper, data):
@@ -233,5 +242,18 @@ def conversation_role_constructor(loader, node):
     return _get_enum_value(value, ConversationRoles)
 
 
-yaml.add_representer(ConversationRoles, conversation_role_representer)
-yaml.add_constructor('!ConversationRole', conversation_role_constructor)
+# yaml.add_representer(ConversationRoles, conversation_role_representer)
+# yaml.add_constructor('!ConversationRole', conversation_role_constructor)
+
+def enum_representer(dumper, data):
+    """Convert enum to string when dumping YAML"""
+    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
+
+def enum_constructor(loader, node):
+    """Convert string back to enum when loading YAML"""
+    value = loader.construct_scalar(node)
+    return type(node.tag)(value)
+
+# Add representers for your specific enum
+# yaml.add_representer(ConversationRoles, enum_representer)
+# yaml.add_constructor('!ConversationRoles', enum_constructor)

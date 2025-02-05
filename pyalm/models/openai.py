@@ -54,7 +54,7 @@ class OpenAI(ALM):
             else:
                 raise Exception("No openai key set!")
 
-        openai_specifics = {"ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system"}
+        openai_specifics = {"assistant": "assistant", "user": "user", "system": "system"}
         self._built_in_symbols.update(openai_specifics)
         self.settings.prompt_obj_is_str = False
         self.total_tokens = 0
@@ -126,16 +126,6 @@ class OpenAI(ALM):
         self.finish_meta["timings"] = {"total_time": round(end - start,2)}
         self.finish_meta["t_per_s"] = {"token_total_per_s": round((tok_total) / (end - start),2)}
 
-        # try:
-        #     cost_in = OpenAI.pricing[self.model]["input"] * tok_in / OpenAI.pricing_meta["token_unit"]
-        #     cost_out = OpenAI.pricing[self.model]["output"] * tok_gen / OpenAI.pricing_meta["token_unit"]
-        #     self.finish_meta["cost"] = {"input": round(cost_in, 3), "output": round(cost_out, 5),
-        #                                 "total": round(cost_out + cost_in, 5),
-        #                                 "total_cent": round((cost_out + cost_in) * 100, 3),
-        #                                 "unit": OpenAI.pricing_meta["currency"]}
-        # except:
-        #     pass
-
         if keep_dict:
             return response
         return response_txt
@@ -162,58 +152,4 @@ class OpenAI(ALM):
         else:
             return self._extract_message_from_generator(response)
 
-    def build_prompt(self, conv_history=None, system_msg=None):
-        if not conv_history:
-            conv_history = self.conversation_history.tracker
-        if not system_msg:
 
-            if self.conversation_history.system_message:
-                system_msg = self.conversation_history.system_message
-            else:
-                system_msg = self.replace_symbols(self.replace_symbols(self.system_msg_template))
-        if system_msg and len(system_msg) <3:
-            system_msg = None
-        prompt = []
-
-        if system_msg and system_msg != "":
-            system_msg = self.replace_symbols(system_msg)
-            if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
-                system_msg += "\n\nGATHERED CONTEXT/KNOWLEDGE:\n" + self.symbols["CONTEXT"]
-            prompt.insert(0, {"role": self.symbols["SYSTEM"], "content": system_msg
-                })
-
-
-        for i in conv_history:
-            prompt_content = ""
-            if "content" in i and i["content"]:
-                prompt_content = self.replace_symbols(i["content"], i)
-            if "code" in i and i["code"]:
-                code_str = f"\n{self.settings.function_sequence[0]}\n"+i["code"]+f"\n{self.settings.function_sequence[1]}"
-                if "return_value" in i and i["return_value"]:
-                    code_str += "\nRETURN:\n"#+i["return_value"]
-                    if isinstance(i["return_value"], str):
-                        code_str += i["return_value"]
-                    else:
-                        try:
-                            code_str += str(i["return_value"])
-                        except:
-                            code_str += "RETURN VALUE OF FUNCTION IS NOT CONVERTIBLE TO STRING!"
-                else:
-                    code_str += "\nRETURN:\nNone(OK)"
-                prompt_content += code_str
-            if prompt_content:
-                prompt.append({"role": self.symbols[str(i["role"])], "content": prompt_content})
-            # if "code" in i and i["code"]:
-            #     code_str = "CODE_START\n"+i["code"]+"\nCODE_START"
-            #     if "return_value" in i and i["return_value"]:
-            #         code_str += "\nRETURN:\n"+i["return_value"]
-            #     else:
-            #         code_str += "\nRETURN:\nNone"
-            #     prompt.append({"role": self.symbols[str(i["role"])], "content":code_str})
-            # else:
-            #     prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
-        # if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
-        #     last_usr_entry, depth = self.conversation_history.get_last_message(ConversationRoles.USER, True)
-        #     if depth == 0 and last_usr_entry:
-        #         prompt[-1]["content"] = "#CONTEXT_START\n"+ self.symbols["CONTEXT"]+"\n#CONTEXT_END\n" + prompt[-1]["content"]
-        return prompt

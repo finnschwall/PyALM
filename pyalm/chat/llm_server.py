@@ -23,8 +23,9 @@ def worker_init():
     #gpt-4-turbo
     #gpt-4-32k-0613
 
-    #gpt-4o-2024-05-13
+    #gpt-4o-2024-05-13 -----
     #gpt-4-32k-0613
+
     llm = OpenAI("gpt-4o-2024-05-13", openai_key.get(), azure_endpoint=azure_endpoint.get(), n_ctx = max_ctx_openai.get())
     worker_context.llm = llm
 

@@ -58,11 +58,11 @@ def get_total_tokens():
 @plugfunc()
 def create_completion_plugin(*args, **kwargs):
     # return "worked"
-    start_time = time.time()
-    print(worker_context.proc_id, " started generation")
+    # start_time = time.time()
+    # print(worker_context.proc_id, " started generation")
     response, metadata = worker_context.llm.create_completion_plugin(*args, **kwargs)
-    total_time = time.time() - start_time
-    print(worker_context.proc_id, " finished generation after ", round(total_time,3), " s")
+    # total_time = time.time() - start_time
+    # print(worker_context.proc_id, " finished generation after ", round(total_time,3), " s")
     return response, metadata
 
 @plugfunc()

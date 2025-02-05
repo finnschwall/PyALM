@@ -100,7 +100,8 @@ class ALM:
     def preserved_sequences(self, value):
         self.settings.preserved_sequences = value
 
-    def __init__(self, model_path_or_name, verbose=0, enable_functions=False, **kwargs):
+    def __init__(self, model_path_or_name, verbose=0, enable_functions=False, no_system_msg_supported= False,**kwargs):
+        self.no_system_msg_supported = no_system_msg_supported
         self.code_calls = None
         if enable_functions:
             self.enable_automatic_function_calls()
@@ -147,7 +148,8 @@ class ALM:
         self._built_in_symbols = {
             "FUNCTION_START": lambda match, symbols, text=None: self.settings.function_sequence[0],
             "FUNCTION_END": lambda match, symbols, text=None: self.settings.function_sequence[1],
-            "ASSISTANT": "Assistant", "USER": "User", "SYSTEM": "System",
+            "ASSISTANT": "assistant", "USER": "user", "SYSTEM": "system",
+            "TO_USER": self.settings.to_user_sequence,
             "FUNCTION_CALL": lambda match, symbols, text=None: self.replace_symbols(
                 self.settings.function_integration_template, additional_symbols=symbols),
             "CODE_CALL_SYSTEM_MSG": _include_code_call_sys_msg,
@@ -370,15 +372,61 @@ class ALM:
         """
         raise NotImplementedError()
 
-    @abstractmethod
-    def build_prompt(self, preserve_flow=False):
-        """
-        Build prompt in format native to library
+    def build_prompt(self, conv_history=None, system_msg=None):
+        if not conv_history:
+            conv_history = self.conversation_history.tracker
+        if not system_msg:
 
-        :param preserve_flow: Block suffix for purely text based models
-        :return: prompt obj
-        """
-        raise NotImplementedError()
+            if self.conversation_history.system_message:
+                system_msg = self.conversation_history.system_message
+            else:
+                system_msg = self.replace_symbols(self.replace_symbols(self.system_msg_template))
+        if system_msg and len(system_msg) <3:
+            system_msg = None
+        prompt = []
+
+        if system_msg and system_msg != "":
+            system_msg = self.replace_symbols(system_msg)
+            if "CONTEXT" in self.symbols and self.symbols["CONTEXT"]:
+                system_msg += "\n\nGATHERED CONTEXT/KNOWLEDGE:\n" + self.symbols["CONTEXT"]
+            if self.no_system_msg_supported:
+                prompt.insert(0, {"role": "user", "content": "###System message###\n"+system_msg})
+            else:
+                prompt.insert(0, {"role": self.symbols["SYSTEM"], "content": system_msg})
+        for i in conv_history:
+            prompt_content = ""
+            if "content" in i and i["content"]:
+                prompt_content = self.replace_symbols(i["content"], i)
+            if "code" in i and i["code"]:
+                code_str = f"\n{self.settings.function_sequence[0]}\n"+i["code"]#+f"\n{self.settings.function_sequence[1]}"
+                if "return_value" in i and i["return_value"]:
+                    code_str += "\n#--RETURN FROM CODECALL--\n"
+                    if isinstance(i["return_value"], str):
+                        code_str += "#"+i["return_value"].replace("\n", "\n#")
+                    else:
+                        try:
+                            code_str += str(i["return_value"])
+                        except:
+                            code_str += "RETURN VALUE OF FUNCTION IS NOT CONVERTIBLE TO STRING!"
+                else:
+                    if not self.settings.to_user_sequence in code_str:
+                        code_str += "\nRETURN:\nNone"
+                if not self.settings.to_user_sequence in code_str:
+                    code_str += f"\n{self.settings.function_sequence[1]}"
+                prompt_content += code_str
+            if prompt_content:
+                prompt.append({"role": i["role"], "content": prompt_content})
+        return prompt
+
+    # @abstractmethod
+    # def build_prompt(self, preserve_flow=False):
+    #     """
+    #     Build prompt in format native to library
+    #
+    #     :param preserve_flow: Block suffix for purely text based models
+    #     :return: prompt obj
+    #     """
+    #     raise NotImplementedError()
 
     def reset_tracker(self, purge=False):
         """
@@ -489,7 +537,7 @@ class ALM:
         return self.raw_generated_text
 
     def create_completion_plugin(self, conv_tracker=None, context=None, func_list=None, system_msg=None, code_calls=0,
-                                 chat_store_loc=None, username=None, temp=None, metadata=None):
+                                 username=None, temp=None, metadata=None):
         import rixaplugin.sync_api as api
 
         self.finish_meta = dict(self._finish_meta_template)
@@ -534,19 +582,19 @@ class ALM:
 
         if conv_tracker:
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "w") as f:
-                text = f"Calling model\nUser: {username}\nCurrent complete prompt:\n"
+                text = f"##########\nCalling model\nUser: {username}\nCurrent complete prompt:\n##########\n"
                 text += self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)
                 f.write(text)
         try:
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
-                text = f"\n\n\n*************\nNEW PROMPT:\n{self.build_prompt_as_str(use_build_prompt=True,include_system_msg=False)}\n"
+                text = f"\n\n\n##########\nNEW PROMPT:\n##########\n{self.build_prompt_as_str(use_build_prompt=True,include_system_msg=False)}\n"
                 f.write(text)
             if temp:
                 ret_text = self.create_native_completion(prompt_obj, temp=temp)
             else:
                 ret_text = self.create_native_completion(prompt_obj)
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
-                f.write("\n\n\n*************\nRAW RETURN FROM MODEL:\n" + ret_text + "\n*************\n\n")
+                f.write("\n\n\n##########\nRAW RETURN FROM MODEL:\n##########\n" + ret_text + "\n##########\n\n")
         except Exception as e:
             self.pop_entry()
             raise e
@@ -567,7 +615,7 @@ class ALM:
         code_calls += 1
         if code_calls >= 3:
             self.conversation_history.add_entry(
-                "Sorry but something has gone wrong when trying to fetch info from the server.",
+                "RIXA failed while trying to call a function due to exceeding call limit.",
                 role=ConversationRoles.ASSISTANT
                 )
             return self.conversation_history, metadata
@@ -576,32 +624,42 @@ class ALM:
             # sometimes the model misses the end sequence and tries to end with #TO_USER. So we see if the end sequence is missing
             # if thats the case AND #TO_USER is in the function call, we truncate the function call to the last #TO_USER
             contained_to_user = False
-            if "#TO_USER" in func_seq_truncated and not func_seq_truncated.endswith(end_seq):
-                func_seq_truncated = func_seq_truncated.rsplit("#TO_USER", 1)[0].strip()
+            if self.settings.to_user_sequence in func_seq_truncated and not func_seq_truncated.endswith(end_seq):
+                func_seq_truncated = func_seq_truncated.rsplit(self.settings.to_user_sequence, 1)[0].strip()
                 contained_to_user = True
+            func_seq_truncated=func_seq_truncated.replace("$$$","")
+            trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
+                self.settings.function_sequence[1], "").strip()
+            if not self.settings.to_user_sequence in func_seq_truncated and not contained_to_user and trunced_text != "":
+                api.display_in_chat({"role": "assistant", "content": trunced_text, "code": func_seq_truncated})
 
             return_from_code = self.code_callback(func_seq_truncated)
             if isinstance(return_from_code, Exception):
                 raise return_from_code
+            if contained_to_user:
+                func_seq_truncated += "\n"+self.settings.to_user_sequence
             kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code}#str(return_from_code)[-1500:] if return_from_code else "None (Function executed without return value and without error)"}
-            trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
-                self.settings.function_sequence[1], "").strip()
+
             if trunced_text != "":
                 self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
                                                     ConversationRoles.ASSISTANT, **kwarg_dic)
             else:
                 self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
-            if "#TO_USER" in func_seq or contained_to_user:
-                return self.conversation_history, metadata
+            if self.settings.to_user_sequence in func_seq or contained_to_user or not return_from_code:
+                if not return_from_code:
+                    return self.conversation_history, metadata
+                else:
+                    self.conversation_history.tracker[-1]["content"] = str(return_from_code)
+                    return self.conversation_history, metadata
             else:
-                if trunced_text != "":
-                    api.display_in_chat(text=trunced_text, role="partial")
+                # if trunced_text != "":
+                #     api.display_in_chat({"role":"assistant","content":trunced_text,**kwarg_dic})#.display_in_chat(text=trunced_text, role="partial")
                 with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
-                    text = "\n\n\n*************\nCODE WAS CALLED WITHOUT ERROR:\n"
-                    text += f"CODE: {func_seq}\nRETURN VALUE: {repr(return_from_code)}"
+                    text = "\n\n\n##########\nCODE WAS CALLED WITHOUT ERROR:\n"
+                    text += f"CODE: {func_seq}\nRETURN VALUE: {repr(return_from_code)}\n##########"
                     f.write(text)
                 self.create_completion_plugin(None, context=context, func_list=func_list,
-                                              code_calls=code_calls, username=username, chat_store_loc=chat_store_loc, metadata=metadata)
+                                              code_calls=code_calls, username=username, metadata=metadata)
 
 
         except Exception as e:
@@ -610,22 +668,25 @@ class ALM:
             alm_logger.exception(f"Exception occurred in code:\n{func_seq}\n{tb}")
 
             # api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
-            api.show_message("An error occured. RIXA will try to fix it. This may take a few seconds.")
-            if "#TO_USER" in func_seq:
+            api.show_message("An error occured. RIXA will try to fix it.")
+            if self.settings.to_user_sequence in func_seq:
                 kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
                 trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
                     self.settings.function_sequence[1], "").strip()
                 if trunced_text != "":
                     self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
                                                         ConversationRoles.ASSISTANT, **kwarg_dic)
-                    api.display_in_chat(text=change_latex_delimiters(trunced_text), role="partial")
+                    #api.display_in_chat(text=change_latex_delimiters(trunced_text), role="partial")
+                    api.display_in_chat({"role":"assistant","content":trunced_text})
                 else:
-                    api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                    # api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                    api.display_in_chat({"role":"assistant","content":"An error has occurred. I will try to fix it"})
                     self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
             else:
-                api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                # api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
+                api.display_in_chat({"role": "assistant", "content": "An error has occurred. I will try to fix it"})
                 self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq.strip(),
-                                                    return_value="EXECUTION FAILED. REASON: " + str(e))
+                                                    return_value="EXECUTION FAILED. REASON:\n" + repr(e))
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
                 text = "\n\n\n*************\nCODE WAS CALLED WITH ERROR:\n"
                 text += f"CODE: {func_seq}\nERROR:\n{tb}"
@@ -804,7 +865,6 @@ class ALM:
                         generator_list.append(token_generator_funcs)
                         enable_function_calls = False
                         last_generated_text = ""
-        print(caught_err.getvalue())
         if chat:
             self.add_tracker_entry(last_generated_text, ConversationRoles.ASSISTANT)
         end = timer()
