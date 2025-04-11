@@ -155,7 +155,7 @@ class ConversationTracker(DataYAML):
         return ret
 
     def add_entry(self, content=None, role=None, metadata=None, code=None, return_value=None, feedback=None,
-                  sentiment=None,processing=None, add_keys=None):
+                  sentiment=None,processing=None, add_keys=None, visible_code=None):
         if not isinstance(role, str):
             role = str(role)
         if not role and len(self.tracker) == 0:
@@ -170,7 +170,7 @@ class ConversationTracker(DataYAML):
         self._add_entry(role, **loc_dic)
 
     def _add_entry(self, role, content=None, metadata=None, feedback=None, code=None, return_value=None,
-                   sentiment=None, processing=None, add_keys=None):
+                   sentiment=None, processing=None, add_keys=None, visible_code=None):
         # role = _get_enum_value(role, ConversationRoles)
 
         entry = {"role": role}
@@ -188,6 +188,8 @@ class ConversationTracker(DataYAML):
             entry["processing"] = processing
         if add_keys:
             entry = entry | add_keys
+        if visible_code:
+            entry["visible_code"] = visible_code
         entry["index"] = 0 if len(self.tracker) == 0 else self.tracker[-1]["index"] + 1
         self.tracker.append(entry)
         return entry
@@ -198,7 +200,7 @@ class ALMSettings(DataYAML):
     verbose: int = 0
     preserved_sequences: dict = dc.field(
         default_factory=lambda: {"latex_double": {"start": "$$", "end": "$$", "name": "latex_double_dollar"}})
-    function_sequence: tuple = dc.field(default_factory=lambda: ("$$$CODE_START", "$$$CODE_END"))
+    function_sequence: tuple = dc.field(default_factory=lambda: ("$$$CODE", "$$$CODE_END"))
     to_user_sequence: str = "$$$TO_USER"
     global_enable_function_calls: bool = False
     automatic_function_integration: bool = False

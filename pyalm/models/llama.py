@@ -19,7 +19,7 @@ class LLaMa(ALM):
 
     def create_native_completion(self, text, temp=0, **kwargs):
         if isinstance(text, str):
-            return self.model.create_completion(text, temperature=temp, **kwargs)
+            return self.model.create_completion(text, temperature=temp,**kwargs)
         else:
             answer = self.model.create_chat_completion(text, temperature=temp, **kwargs)
             self.finish_meta["tokens"] = answer["usage"]

@@ -3,7 +3,7 @@ import json
 import re
 import requests
 
-from rixaplugin import variables as var
+from rixaplugin import variables as var, settings
 from rixaplugin.data_structures.rixa_exceptions import QueueOverflowException, PluginNotFoundException, \
     RemoteTimeoutException, RemoteOfflineException
 from rixaplugin.decorators import global_init, worker_init, plugfunc
@@ -36,16 +36,27 @@ multiplexing = var.PluginVariable("multiplexing", bool, default=False, readable=
 
 enable_knowledge_retrieval_var = var.PluginVariable("enable_knowledge_retrieval", bool, default=True,
                                                     readable=var.Scope.USER, writable=var.Scope.USER)
-nlp_engine_options_var = var.PluginVariable("NLP_ENGINE_OPTIONS", str, default="openai")
-nlp_engine_options= nlp_engine_options_var.get().split(",")
+
+
+nlp_engine_options_var = var.PluginVariable("NLP_ENGINE_OPTIONS", str, default="auto")
+nlp_engine_options = ["auto"]+nlp_engine_options_var.get().split(",")
+
+
 nlp_engine = var.PluginVariable("nlp_engine", str, default=nlp_engine_options[0], readable=var.Scope.USER,
                                 writable=var.Scope.USER, options=nlp_engine_options)
 
 
 async def load_balanced_request(func_name, args=None, kwargs=None):
-    current_idx = nlp_engine_options.index(nlp_engine.get())
+    current = nlp_engine.get()
+    if current not in nlp_engine_options:
+        await api.show_message(f"Backend '{current}' not in list. Misconfiguration in preferred backend?","error")
+        current = "auto"
+    if current == "auto":
+        current_idx = 1
+    else:
+        current_idx = nlp_engine_options.index(current)
     did_balancing = False
-    did_replace=False
+    did_replace = False
     success = False
     success_backend = ""
     orig_backend = nlp_engine_options[current_idx]
@@ -80,17 +91,15 @@ async def load_balanced_request(func_name, args=None, kwargs=None):
         return ret_val
 
 
-
 @plugfunc()
 async def generate_text(conversation_tracker_yaml, enable_function_calling=True, enable_knowledge_retrieval=True,
-                        knowledge_retrieval_domain=None, system_msg=None, username=None):
+                        knowledge_retrieval_domain=None, system_msg=None, username=None, preferred_chat_backend=None):
     """
     Generate text based on the conversation tracker and available functions
 
     :param conversation_tracker_yaml: The conversation tracker in yaml format
     :param available_functions: A list of available functions
     """
-    start_time = time.time()
     user_api = internal_api.get_api()
     # api.display_in_chat(text="Starting preprocessing...", role="partial")
     # if username and chat_store_loc.get():
@@ -98,8 +107,8 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
 
     if "excluded_functions" not in user_api.scope:
         user_api.scope["excluded_functions"] = ["generate_text", "get_total_tokens"]
-    user_api.scope["excluded_functions"] += ["get_random_entries", "query_db"]
-    # print(user_api.scope)
+    user_api.scope["excluded_functions"] += ["get_random_entries", "query_db", "next_datapoint", "show_datapoint",
+                                             "reset"]
 
     tracker = ConversationTracker.from_yaml(conversation_tracker_yaml)
     use_multiplexing = multiplexing.get()
@@ -108,12 +117,12 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
 
     enable_knowledge_retrieval = enable_knowledge_retrieval_var.get() & enable_knowledge_retrieval
     if enable_knowledge_retrieval:
-        if len(tracker.tracker)<2:
-            queries = [{"query":last_usr_msg["content"],"max_entries":5}]
+        if len(tracker.tracker) < 2:
+            queries = [{"query": last_usr_msg["content"], "max_entries": 5}]
         else:
             convo_ctx = f"assistant: {tracker[-2].get('content', '')}\nuser: {last_usr_msg['content']}"
-            queries = [{"query":last_usr_msg["content"],"max_entries":4},
-                       {"query":convo_ctx, "max_entries": 2}]
+            queries = [{"query": last_usr_msg["content"], "max_entries": 4},
+                       {"query": convo_ctx, "max_entries": 2}]
     info_score = 4
     included_functions = None
     preprocessing_tokens = None
@@ -140,7 +149,9 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
             used_ids = []
             for x, query in enumerate(queries):
                 cur_query = query["query"]
-                future = await async_execute("query_db", args=[cur_query, knowledge_retrieval_domain, query["max_entries"]], kwargs={},
+                future = await async_execute("query_db",
+                                             args=[cur_query, knowledge_retrieval_domain, query["max_entries"]],
+                                             kwargs={},
                                              return_future=True)
                 context = await future
                 contexts.append(context)
@@ -168,14 +179,37 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
 
     else:
         func_list = None
+    if tracker.metadata.get("chat_mode", "") == "anmol":
+        future = await async_execute("show_datapoint", return_future=True)
+        ret = await future
+        system_msg += "\nCURRENTLY SELECTED DATAPOINT:\n" + ret
+
     kwargs = {"conv_tracker": tracker, "context": context_str, "func_list": func_list, "system_msg": system_msg,
               "username": username,
               "temp": 0}
 
     tracker, metadata = await load_balanced_request("create_completion_plugin", kwargs=kwargs)
-    if "USED_RESULTS" in user_api.plugin_variables:
-        used_citations = user_api.plugin_variables["USED_RESULTS"]
-        for i in used_citations:
+    existing_citations = None
+
+    if tracker.metadata.get("chat_mode", "") == "mode3":
+        future = await async_execute("get_random_entries",
+                                     kwargs={"collection": "schork"},
+                                     return_future=True)
+        context = await future
+        for i, ctx in enumerate(context):
+            fake_citation = f"[{i + 1}]"
+            actual_citation = f"{{{{{ctx['id']}}}}}"
+            # check if fake citation is existent
+            if fake_citation in tracker.tracker[-1]["content"]:
+                tracker.tracker[-1]["content"] = tracker.tracker[-1]["content"].replace(fake_citation, actual_citation)
+
+    if "USED_RESULTS" in user_api.state:
+        existing_citations = user_api.state["USED_RESULTS"]
+    if context:
+        existing_citations = context
+    if existing_citations:
+        context = existing_citations
+        for i in existing_citations:
             i["index"] = int(i["id"])
             if "authors" not in i:
                 i["authors"] = "Unknown"
@@ -188,126 +222,70 @@ async def generate_text(conversation_tracker_yaml, enable_function_calling=True,
                 i["tags"] = ["Unknown"]
             if type(i["tags"]) == str:
                 i["tags"] = i["tags"].split(",")
-        tracker.tracker[-1]["citations"] = used_citations
-        tracker.tracker[-1]["used_citations"] = used_citations
+        # tracker.tracker[-1]["citations"] = context
+        # tracker.tracker[-1]["used_citations"] = used_citations
 
-    # print(user_api.plugin_variables)
     # assistant_msgs = tracker.pop_entry()
-    # if tracker.metadata.get("chat_mode","") == "mode3":
-    #     future = await async_execute("get_random_entries",
-    #                                  kwargs={"collection": "schork"},
-    #                                  return_future=True)
-    #     context = await future
-    #     for i, ctx in enumerate(context):
-    #         fake_citation = f"[{i + 1}]"
-    #         actual_citation = f"{{{{{ctx['id']}}}}}"
-    #         # check if fake citation is existent
-    #         if fake_citation in assistant_msgs[-1]["content"]:
-    #             assistant_msgs[-1]["content"] = assistant_msgs[-1]["content"].replace(fake_citation, actual_citation)
-    #
-    # all_citations = []
-    # total_content = ""
-    # code_calls = []
-    # msg_parts = []
-    # for i, msg in enumerate(assistant_msgs[::-1]):
-    #     if "content" in msg:
-    #         total_content += msg["content"]
-    #         if i != len(assistant_msgs) - 1:
-    #             total_content += "\n"
-    #         citations = re.findall(r"\{\{(\d+)\}\}", msg["content"])#re.findall(r"\{\{([a-fA-F0-9]{16})\}\}", msg["content"])#
-    #         try:
-    #             citation_ids = citations
-    #             all_citations += citation_ids
-    #         except Exception as e:
-    #             llm_logger.exception(f"Could not parse citation ids")
-    #     if "code" in msg:
-    #         if "return_value" in msg:
-    #             code_calls.append({"code": msg["code"], "return": msg["return_value"]})
-    #         else:
-    #             code_calls.append({"code": msg["code"]})
-    #     msg_parts.append(msg)
-    #
-    # convo_idx = 0 if len(tracker.tracker) == 0 else tracker.tracker[-1]["index"] + 1
-    # used_citations = []
-    # faulty_citations = []
-    # try:
-    #     if context:
-    #         for i in context:
-    #             if str(i["id"]) in all_citations:
-    #                 used_citations.append(i)
-    # except Exception as e:
-    #     llm_logger.exception(f"Could not replace citations")
-    #
-    # for i in all_citations:
-    #     if i not in [str(j["id"]) for j in context]:
-    #         faulty_citations.append(i)
-    #         total_content = re.sub(r"\{\{" + str(i) + r"\}\}", "", total_content)
-    #
-    # if context:
-    #     unused_citations = [i["id"] for i in context if i["id"] not in all_citations and i["id"] not in faulty_citations]
-    # else:
-    #     unused_citations = []
-    # for i in used_citations:
-    #     i["index"] = int(i["id"])
-    #     if "authors" not in i:
-    #         i["authors"] = "Unknown"
-    #     if "subheader" not in i:
-    #         if "title" in i:
-    #             i["subheader"] = i["title"]
-    #         else:
-    #             i["subheader"] = "Unknown"
-    #     if "tags" not in i:
-    #         i["tags"] = ["Unknown"]
-    #     if type(i["tags"]) == str:
-    #         i["tags"] = i["tags"].split(",")
 
-    # code_str = ""
-    # if len(code_calls) == 1:
-    #     code_str = code_calls[0]["code"]
-    #     if "return" in code_calls[0]:
-    #         code_str += f"\nRETURN:\n{code_calls[0]['return']}"
-    # if len(code_calls) > 1:
-    #     for i, code in enumerate(code_calls):
-    #         code_str += f"CALL {i}\n{code['code']}\n"
-    #         if "return" in code:
-    #             code_str += f"RETURN:\n{code['return']}\n"
-    #
-    # merged_tracker_entry = {"role": "assistant",
-    #                         "content": total_content, }
-    # if len(used_citations) > 0:
-    #     merged_tracker_entry["citations"] = used_citations
-    # if code_str:
-    #     merged_tracker_entry["code"] = code_str
-    #
-    # merged_tracker_entry["index"] = convo_idx
-    # # merged_tracker_entry["metadata"] = llm.finish_meta
-    # # merged_tracker_entry["processing"] = preprocessor_json
-    # if use_multiplexing:
-    #     multiplexing_meta_dict = {"enable_function_calling": enable_function_calling,
-    #                                 "use_document_retrieval": enable_knowledge_retrieval,
-    #                                 "included_functions": included_functions}
-    #     if queries:
-    #         multiplexing_meta_dict["queries"] = queries
-    #         multiplexing_meta_dict["info_score"] = info_score
-    #     multiplexing_meta_dict["preprocessing_tokens"] = preprocessing_tokens
-    #     metadata["total_tokens"] += preprocessing_tokens
-    #     metadata.update(multiplexing_meta_dict)
-    # finished_time = time.time()
-    # metadata["total_time"] = round(finished_time - start_time, 3)
-    # merged_tracker_entry["metadata"] = metadata
-    #
-    # tracker.tracker.append(merged_tracker_entry)
-    tracker[-1]["metadata"] = metadata
+    all_citations = []
+    msg = tracker.tracker[-1]
+    if "content" in msg:
+        citations = re.findall(r"\{\{(\d+)\}\}",
+                               msg["content"])  # re.findall(r"\{\{([a-fA-F0-9]{16})\}\}", msg["content"])#
+        try:
+            citation_ids = citations
+            all_citations += citation_ids
+        except Exception as e:
+            llm_logger.exception(f"Could not parse citation ids")
+    all_citations = list(set(all_citations))
+    used_citations = []
+    used_citation_ids = []
+    faulty_citations = []
+    try:
+        if context:
+            for i in context:
+                if str(i["id"]) in all_citations and str(i["id"]) not in used_citation_ids:
+                    used_citations.append(i)
+                    used_citation_ids.append(str(i["id"]))
+    except Exception as e:
+        llm_logger.exception(f"Could not replace citations")
+
+    for i in all_citations:
+        if i not in [str(j["id"]) for j in context]:
+            faulty_citations.append(i)
+            # total_content = re.sub(r"\{\{" + str(i) + r"\}\}", "", total_content)
+
+    if context:
+        unused_citations = [i["id"] for i in context if
+                            i["id"] not in all_citations and i["id"] not in faulty_citations]
+    else:
+        unused_citations = []
+
+    if len(used_citations) > 0:
+        tracker.tracker[-1]["citations"] = used_citations
+
+
     tracker[-1]["metadata"]["timestamp"] = datetime.datetime.now().isoformat()
     tracker[-1]["metadata"]["model_name"] = tracker.metadata["model_name"]
-    # if len(unused_citations) > 0:
-    #     tracker[-1]["metadata"]["unused_citations"] = unused_citations
-    # if len(all_citations)> 0:
-    #     tracker[-1]["metadata"]["used_citations"] = all_citations
-    # if len(faulty_citations) > 0:
-    #     tracker[-1]["metadata"]["faulty_citations"] = faulty_citations
-    # if len(msg_parts) > 1:
-    #     tracker[-1]["sub_messages"] = yaml.dump(msg_parts)
+    if len(unused_citations) > 0:
+        tracker[-1]["metadata"]["unused_citations"] = unused_citations
+    if len(all_citations) > 0:
+        tracker[-1]["metadata"]["used_citations"] = all_citations
+    if len(faulty_citations) > 0:
+        tracker[-1]["metadata"]["faulty_citations"] = faulty_citations
+
+    if "has_code_error" in tracker[-1]["metadata"]:
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # check if folder exists
+        if not os.path.exists(settings.WORKING_DIRECTORY + f"/bug_reports/auto"):
+            llm_logger.info(f"Creating folder {settings.WORKING_DIRECTORY + f'/bug_reports/auto'}")
+            os.makedirs(settings.WORKING_DIRECTORY + f"/bug_reports/auto")
+        with open(settings.WORKING_DIRECTORY + f"/bug_reports/auto/{username}_{current_time}.txt", "w") as f:
+            total_text = f"Automatic bugreport for user '{username}' at {current_time}\n\n"
+            total_text += f"Error message: {tracker[-1]['metadata'].get('error_message')}\n\n"
+            total_text += f"\n\nConversation tracker:\n{tracker.to_yaml()}"
+
+            f.write(total_text)
 
 
     return tracker.to_yaml()

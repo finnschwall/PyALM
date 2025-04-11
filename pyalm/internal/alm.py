@@ -399,7 +399,7 @@ class ALM:
                 prompt_content = self.replace_symbols(i["content"], i)
             if "code" in i and i["code"]:
                 code_str = f"\n{self.settings.function_sequence[0]}\n"+i["code"]#+f"\n{self.settings.function_sequence[1]}"
-                if "return_value" in i and i["return_value"]:
+                if "return_value" in i:
                     code_str += "\n#--RETURN FROM CODECALL--\n"
                     if isinstance(i["return_value"], str):
                         code_str += "#"+i["return_value"].replace("\n", "\n#")
@@ -411,8 +411,8 @@ class ALM:
                 else:
                     if not self.settings.to_user_sequence in code_str:
                         code_str += "\nRETURN:\nNone"
-                if not self.settings.to_user_sequence in code_str:
-                    code_str += f"\n{self.settings.function_sequence[1]}"
+                # if not self.settings.to_user_sequence in code_str:
+                #     code_str += f"\n{self.settings.function_sequence[1]}"
                 prompt_content += code_str
             if prompt_content:
                 prompt.append({"role": i["role"], "content": prompt_content})
@@ -584,17 +584,19 @@ class ALM:
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "w") as f:
                 text = f"##########\nCalling model\nUser: {username}\nCurrent complete prompt:\n##########\n"
                 text += self.build_prompt_as_str(use_build_prompt=True, include_system_msg=True)
+                # print("PROMPT:\n",self.build_prompt_as_str(use_build_prompt=True, include_system_msg=False))
                 f.write(text)
         try:
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
                 text = f"\n\n\n##########\nNEW PROMPT:\n##########\n{self.build_prompt_as_str(use_build_prompt=True,include_system_msg=False)}\n"
                 f.write(text)
             if temp:
-                ret_text = self.create_native_completion(prompt_obj, temp=temp)
+                ret_text = self.create_native_completion(prompt_obj, temp=temp, stop=["#--RETURN FROM CODECALL--","Assistant:"])
             else:
-                ret_text = self.create_native_completion(prompt_obj)
+                ret_text = self.create_native_completion(prompt_obj, stop=["#--RETURN FROM CODECALL--","Assistant:"])
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
                 f.write("\n\n\n##########\nRAW RETURN FROM MODEL:\n##########\n" + ret_text + "\n##########\n\n")
+                # print("RAW RETURN FROM MODEL:\n",ret_text)
         except Exception as e:
             self.pop_entry()
             raise e
@@ -609,14 +611,23 @@ class ALM:
             pattern = re.escape(start_seq) + '(.*?)' + re.escape(end_seq)
             matches = [(m.group(1), m.span(), m) for m in re.finditer(pattern, ret_text_copy, re.DOTALL)]
             if len(matches) == 0:
-                self.conversation_history.add_entry(change_latex_delimiters(ret_text), ConversationRoles.ASSISTANT)
+                kwarg_dic = {"metadata": metadata}
+                if code_calls >= 1:
+                    last_entry = self.conversation_history.tracker[-1]
+                    pass
+                    kwarg_dic["visible_code"] = last_entry.get("code","CODE MISSING")
+                    # kwarg_dic["return_value"] = last_entry.get("return_value", "None")
+                self.conversation_history.add_entry(change_latex_delimiters(ret_text), ConversationRoles.ASSISTANT, **kwarg_dic)
                 return self.conversation_history, metadata
         func_seq = matches[0][0]
         code_calls += 1
+        metadata["code_calls"] = code_calls
+
         if code_calls >= 3:
+            metadata["exceeded_call_limit"] = True
             self.conversation_history.add_entry(
                 "RIXA failed while trying to call a function due to exceeding call limit.",
-                role=ConversationRoles.ASSISTANT
+                role=ConversationRoles.ASSISTANT, metadata=metadata
                 )
             return self.conversation_history, metadata
         try:
@@ -638,14 +649,14 @@ class ALM:
                 raise return_from_code
             if contained_to_user:
                 func_seq_truncated += "\n"+self.settings.to_user_sequence
-            kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code}#str(return_from_code)[-1500:] if return_from_code else "None (Function executed without return value and without error)"}
+            kwarg_dic = {"code": func_seq_truncated, "return_value": return_from_code, "metadata":metadata, "visible_code": func_seq_truncated}
 
             if trunced_text != "":
                 self.conversation_history.add_entry(change_latex_delimiters(trunced_text),
                                                     ConversationRoles.ASSISTANT, **kwarg_dic)
             else:
                 self.conversation_history.add_entry("", ConversationRoles.ASSISTANT, **kwarg_dic)
-            if self.settings.to_user_sequence in func_seq or contained_to_user or not return_from_code:
+            if self.settings.to_user_sequence in func_seq or contained_to_user:
                 if not return_from_code:
                     return self.conversation_history, metadata
                 else:
@@ -665,12 +676,14 @@ class ALM:
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
+            metadata["has_code_error"] = True
+            metadata["error_message"] = str(e)
             alm_logger.exception(f"Exception occurred in code:\n{func_seq}\n{tb}")
 
             # api.display(html="<h2>An exception occurred during an attempted code call</h2><code>" + tb.replace("\n", "<br>")[-2000:] + "</code>")
             api.show_message("An error occured. RIXA will try to fix it.")
             if self.settings.to_user_sequence in func_seq:
-                kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e)}
+                kwarg_dic = {"code": func_seq, "return_value": "EXECUTION FAILED. REASON: " + str(e), "metadata":metadata}
                 trunced_text = ret_text.replace(func_seq, "").replace(self.settings.function_sequence[0], "").replace(
                     self.settings.function_sequence[1], "").strip()
                 if trunced_text != "":
@@ -686,7 +699,7 @@ class ALM:
                 # api.display_in_chat(text="An error has occurred. I will try to fix it", role="partial")
                 api.display_in_chat({"role": "assistant", "content": "An error has occurred. I will try to fix it"})
                 self.conversation_history.add_entry(role=ConversationRoles.ASSISTANT, code=func_seq.strip(),
-                                                    return_value="EXECUTION FAILED. REASON:\n" + repr(e))
+                                                    return_value="EXECUTION FAILED. REASON:\n" + repr(e), metadata=metadata)
             with open(rixaplugin.settings.WORKING_DIRECTORY + "/chat_tmp.txt", "a") as f:
                 text = "\n\n\n*************\nCODE WAS CALLED WITH ERROR:\n"
                 text += f"CODE: {func_seq}\nERROR:\n{tb}"
@@ -916,17 +929,6 @@ class ALM:
         if not block_gen_prefix and self.settings.generation_prefix and self.settings.generation_prefix != "":
             prompt += rep_sym(self.settings.generation_prefix)
         return prompt
-
-    # for i in conv_history:
-    #     if "code" in i and i["code"]:
-    #         code_str = "CODE_START\n" + i["code"] + "\nCODE_START"
-    #         if "return_value" in i and i["return_value"]:
-    #             code_str += "\nRETURN:\n" + i["code_return_val"]
-    #         else:
-    #             code_str += "\nRETURN:\nNone"
-    #         prompt.append({"role": self.symbols["SYSTEM"], "content": code_str})
-    #     else:
-    #         prompt.append({"role": self.symbols[str(i["role"])], "content": self.replace_symbols(i["content"], i)})
 
     def _text_callback(self, text):
         pass
